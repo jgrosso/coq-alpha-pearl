@@ -1,0 +1,8 @@
+-R theories/ AlphaPearl
+
+theories/PlfTactics.v
+theories/Tactics.v
+theories/FiniteStructures.v
+theories/Alpha.v
+
+-arg "-w -notation-overridden,-parsing"
