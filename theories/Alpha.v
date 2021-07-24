@@ -2783,4 +2783,70 @@ Module Alpha.
   Qed.
 
   (* TODO Formalize the resulting Kliesli-category. *)
+
+  Implicit Types n i : nat.
+
+  #[global] Instance nat_HasMembers : HasMembers nat nat bool :=
+    { is_member_of i n := i < n }.
+
+  Inductive de_Bruijn_term : Type :=
+  | de_Bruijn_abstraction : de_Bruijn_term -> de_Bruijn_term
+  | de_Bruijn_application : de_Bruijn_term -> de_Bruijn_term -> de_Bruijn_term
+  | de_Bruijn_variable : nat -> de_Bruijn_term.
+
+  #[local] Coercion de_Bruijn_variable : nat >-> de_Bruijn_term.
+
+  Implicit Types dBt dBu : de_Bruijn_term.
+
+  Fixpoint de_Bruijn_Tm n dBt : bool :=
+    match dBt with
+    | de_Bruijn_abstraction dBt =>
+      dBt ∈ de_Bruijn_Tm (S n)
+    | de_Bruijn_application dBt dBu =>
+      (dBt ∈ de_Bruijn_Tm n) && (dBu ∈ de_Bruijn_Tm n)
+    | de_Bruijn_variable i =>
+      i ∈ n
+    end.
+
+  #[local] Notation "'Tm^db'" := de_Bruijn_Tm.
+
+  Section in_de_Bruijn_Tm.
+    Reserved Notation "x '∈' 'Tm^db' n" (at level 40).
+
+    Inductive in_de_Bruijn_Tm : nat -> de_Bruijn_term -> Prop :=
+    | de_Bruijn_Tm_variable : forall n i,
+        i ∈ n : Prop ->
+        i ∈ Tm^db n
+    | de_Bruijn_Tm_application : forall n dBt dBu,
+        dBt ∈ Tm^db n ->
+        dBu ∈ Tm^db n ->
+        de_Bruijn_application dBt dBu ∈ Tm^db n
+    | de_Bruijn_Tm_abstraction : forall n dBt,
+        dBt ∈ Tm^db (n + 1) ->
+        de_Bruijn_abstraction dBt ∈ Tm^db n
+
+    where "t '∈' 'Tm^db' n" := (in_de_Bruijn_Tm n t).
+  End in_de_Bruijn_Tm.
+
+  Lemma de_Bruijn_TmP : forall n dBt, reflect (in_de_Bruijn_Tm n dBt) (dBt ∈ Tm^db n).
+  Proof.
+    simpl. intros.
+    gen_dep n. induction dBt; simpl; intros.
+    - destruct (IHdBt n.+1); repeat constructor.
+      + rewrite addn1 //.
+      + intro_all. apply n0. inverts H. rewrite addn1 // in H2.
+    - destruct (IHdBt1 n); repeat constructor.
+      + destruct (IHdBt2 n); repeat constructor; auto.
+        intro_all. apply n0. inverts H. auto.
+      + intro_all. inverts H. auto.
+    - gen_dep n0. induction n; intros;
+      destruct n0; repeat constructor; intro_all; simpl in *;
+      try solve [inverts H; inverts H2].
+      replace (n.+1 < n0.+1) with (n < n0) by auto.
+      (pose proof (IHn n0)); inverts H; repeat constructor.
+      { simpl. auto. }
+      intro_all. inverts H. simpl in *.
+      replace (n.+1 < n0.+1) with (n < n0) in H4 by auto.
+      rewrite H4 // in H0.
+  Qed.
 End Alpha.
