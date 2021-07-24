@@ -30,25 +30,12 @@ Module Alpha.
 
   Parameter 𝒱 : ordType.
 
-  Inductive type : Type :=
-  | Arrow : type -> type -> type.
-
-  #[export] Hint Constructors type : core.
-
-  Canonical type_indType := IndType type [indDef for type_rect].
-
-  Canonical type_eqType := EqType type [derive eqMixin for type].
-
-  Canonical type_choiceType := ChoiceType type [derive choiceMixin for type].
-
-  Canonical type_ordType := OrdType type [derive ordMixin for type].
-
   Inductive term : Type :=
-  | abstraction : 𝒱 -> type -> term -> term
+  | abstraction : 𝒱 -> term -> term
   | application : term -> term -> term
   | variable : 𝒱 -> term.
 
-  #[export] Hint Constructors type : core.
+  #[export] Hint Constructors term : core.
 
   Canonical term_indType := IndType term [indDef for term_rect].
 
@@ -58,11 +45,11 @@ Module Alpha.
 
   Canonical term_ordType := OrdType term [derive ordMixin for term].
 
-  Implicit Types (W X Y Z : {fset 𝒱}) (t u : term) (T : type) (x y z : 𝒱) (R S : {fmap 𝒱 → 𝒱}).
+  Implicit Types (W X Y Z : {fset 𝒱}) (t u : term) (x y z : 𝒱) (R S : {fmap 𝒱 → 𝒱}).
 
   Fixpoint Tm X t : bool :=
     match t with
-    | abstraction x T t => t ∈ Tm (X ∪ {x})
+    | abstraction x t => t ∈ Tm (X ∪ {x})
     | application t u => (t ∈ Tm X) && (u ∈ Tm X)
     | variable x => x ∈ X
     end.
@@ -78,9 +65,9 @@ Module Alpha.
     | Tm_application : forall X t u,
         t ∈ Tm X -> u ∈ Tm X ->
         application t u ∈ Tm X
-    | Tm_abstraction : forall X t T x,
+    | Tm_abstraction : forall X t x,
         t ∈ Tm (X ∪ {x}) ->
-        abstraction x T t ∈ Tm X
+        abstraction x t ∈ Tm X
 
     where "t '∈' 'Tm' X" := (in_Tm X t).
   End in_Tm.
@@ -173,7 +160,7 @@ Module Alpha.
     match t, u with
     | variable x, variable y => (x, y) ∈ R
     | application t u, application t' u' => t ≡_α^R t' && (u ≡_α^R u')
-    | abstraction x T1 t, abstraction y T2 u => (T1 == T2) && (t ≡_α^R⦅x,y⦆ u)
+    | abstraction x t, abstraction y u => t ≡_α^R⦅x,y⦆ u
     | _, _ => false
     end
 
@@ -189,9 +176,9 @@ Module Alpha.
     | α_equivalent''_application : forall R t t' u u',
         t ≡_α^R t' -> u ≡_α^R u' ->
         application t u ≡_α^R application t' u'
-    | α_equivalent''_abstraction : forall R T t u x y,
+    | α_equivalent''_abstraction : forall R t u x y,
         t ≡_α^R⦅x,y⦆ u ->
-        abstraction x T t ≡_α^R abstraction y T u
+        abstraction x t ≡_α^R abstraction y u
 
     where "x '≡_α^' R y" := (α_equivalent'' R x y).
   End α_equivalent''.
@@ -205,14 +192,10 @@ Module Alpha.
     - gen_dep R u. induction t; intros;
       destruct u; inverts Heqb; auto;
       apply (rwP andP) in H0 as []; auto.
-      apply (rwP eqP) in H. subst. auto.
     - intro_all.
-      dependent induction H; inverts Heqb.
+      dependent induction H; inverts Heqb; auto.
       + simpl in *. rewrite H // in H1.
       + apply negbT, (rwP nandP) in H2 as []; apply negbTE in H1; auto.
-      + apply negbT, (rwP nandP) in H1 as [].
-        * rewrite eq_refl // in H0.
-        * apply negbTE in H0. auto.
   Qed.
 
   Lemma superset_in_Tm :
@@ -242,9 +225,8 @@ Module Alpha.
     intros.
     gen_dep b R X Y. induction a; intros;
     destruct b; inverts H0.
-    - apply (rwP andP) in H2 as []. apply (rwP eqP) in H0. subst.
-      split;
-      apply IHa with (X := X ∪ {s}) (Y := Y ∪ {s0}) in H1 as []; auto;
+    - split;
+      apply IHa with (X := X ∪ {s}) (Y := Y ∪ {s0}) in H2 as []; auto;
       intros; split; eapply (@update_type X Y _ s s0) in H as []; eauto.
     - apply (rwP andP) in H2 as [].
       eapply IHa1 in H0 as []; eauto.
@@ -515,7 +497,7 @@ Module Alpha.
     intros.
     gen_dep X. induction t; intros;
     rewrite /in_mem in H; inverts H.
-    - apply IHt in H1. rewrite /= eq_refl update_identity //.
+    - apply IHt in H1. rewrite /= update_identity //.
     - apply (rwP andP) in H1 as [].
       apply IHt1 in H. apply IHt2 in H0.
       rewrite /= H H0 //.
@@ -531,9 +513,8 @@ Module Alpha.
     intros.
     gen_dep R u. induction t; intros;
     destruct u; inverts H0.
-    - apply (rwP andP) in H2 as []. apply (rwP eqP) in H0. subst.
-      apply IHt in H1.
-      + rewrite /= eq_refl -update_converse //.
+    - apply IHt in H2.
+      + rewrite /= -update_converse //.
       + apply partial_bijection_update. auto.
     - apply (rwP andP) in H2 as [].
       apply IHt1 in H0; auto. apply IHt2 in H1; auto.
@@ -552,8 +533,7 @@ Module Alpha.
     intros.
     gen_dep R__sub R__super u. induction t; intros;
     destruct u; inverts H0.
-    - apply (rwP andP) in H2 as []. apply (rwP eqP) in H0. subst.
-      apply IHt with (R__super := R__super⦅s,s0⦆) in H1; cycle 1.
+    - apply IHt with (R__super := R__super⦅s,s0⦆) in H2; cycle 1.
       { intros.
         rewrite unionmE remmE rem_valmE setmE /= in H0.
         rewrite unionmE remmE rem_valmE setmE /=.
@@ -562,7 +542,7 @@ Module Alpha.
         + apply H in Heqo; rewrite Heqo.
           destruct (s0 =P s1); inverts H0. auto.
         + inverts H0. }
-      rewrite /= eq_refl H1 //.
+      rewrite /= H2 //.
     - apply (rwP andP) in H2 as [].
       apply IHt1 with (R__super := R__super) in H0; auto.
       apply IHt2 with (R__super := R__super) in H1; auto.
@@ -579,12 +559,10 @@ Module Alpha.
     intros.
     gen_dep u v R S. induction t; intros;
     destruct u, v; inverts H; inverts H0.
-    - apply (rwP andP) in H1 as [], H2 as [].
-      apply (rwP eqP) in H, H1. subst.
-      apply IHt with (S := S⦅s0,s1⦆) (v := v) in H2; auto.
+    - apply IHt with (S := S⦅s0,s1⦆) (v := v) in H2; auto.
       apply α_equivalent'_supermap with (R__super := (R;S)⦅s,s1⦆) in H2; cycle 1.
       { intros. eapply update_compose; eauto. }
-      rewrite /= eq_refl H2 //.
+      rewrite /= H2 //.
     - apply (rwP andP) in H1 as [], H2 as [].
       apply IHt1 with (R := R) (S := S) (v := v1) in H1; auto.
       apply IHt2 with (R := R) (S := S) (v := v2) in H2; auto.
@@ -691,7 +669,7 @@ Module Alpha.
 
   Fixpoint free_variables t : {fset 𝒱} :=
     match t with
-    | abstraction x _ t => free_variables t :\ x
+    | abstraction x t => free_variables t :\ x
     | application t1 t2 => free_variables t1 ∪ free_variables t2
     | variable x => fset1 x
     end.
@@ -701,7 +679,7 @@ Module Alpha.
     intros.
     rewrite /in_mem /=.
     induction t; simpl.
-    - apply superset_in_Tm with (X__sub := free_variables t0); auto.
+    - apply superset_in_Tm with (X__sub := free_variables t); auto.
       intros.
       simpl in *. rewrite in_fsetU in_fsetD in_fset1 H.
       destruct (a =P s); auto.
@@ -721,7 +699,7 @@ Module Alpha.
       + apply IHt. intros.
         destruct (a =P s); subst.
         * rewrite in_fsetU in_fset1 eq_refl orbT //.
-        * assert (a \in free_variables t0 :\ s).
+        * assert (a \in free_variables t :\ s).
           { rewrite in_fsetD H0 in_fset1 andbT.
             apply negbT, Bool.not_true_iff_false. intro_all.
             apply (rwP eqP) in H1. subst. auto. }
@@ -951,9 +929,9 @@ Module Alpha.
     match t with
     | variable x => odflt t (getm f x)
     | application t u => application (`⦇f⦈ Y t) (`⦇f⦈ Y u)
-    | abstraction x T t =>
+    | abstraction x t =>
       let z := Fresh Y in
-      abstraction z T (`⦇f[x,variable z]⦈ (Y ∪ {z}) t)
+      abstraction z (`⦇f[x,variable z]⦈ (Y ∪ {z}) t)
     end
 
   where "'`⦇' f '⦈'" := (lift_substitution f).
@@ -1144,14 +1122,13 @@ Module Alpha.
     intros.
     gen_dep R u. induction t; intro_all;
     destruct u; inverts H.
-    - apply (rwP andP) in H2 as []. apply (rwP eqP) in H. subst.
-      rewrite /= in_fsetD in_fset1 in H0. apply (rwP andP) in H0 as [].
-      pose proof H1. apply IHt in H1 as (? & ? & ?); auto.
-      rewrite unionmE remmE rem_valmE setmE /= in H1.
+    - rewrite /= in_fsetD in_fset1 in H0. apply (rwP andP) in H0 as [].
+      pose proof H2. apply IHt in H2 as (? & ? & ?); auto.
+      rewrite unionmE remmE rem_valmE setmE /= in H2.
       destruct (x =P s); subst; auto.
       destruct (getm R x) eqn:?; cycle 1.
-      { inverts H1. }
-      destruct (s0 =P s1); subst; inverts H1.
+      { inverts H2. }
+      destruct (s0 =P s1); subst; inverts H2.
       exists x0. split; auto. simpl in *. rewrite /= in_fsetD in_fset1 H3 //.
       apply not_eq_sym, (introF eqP) in n0. rewrite n0 //.
     - apply (rwP andP) in H2 as [].
@@ -1207,16 +1184,15 @@ Module Alpha.
     intros.
     gen_dep R u. induction t; intro_all;
     destruct u; inverts H.
-    - apply (rwP andP) in H2 as []. apply (rwP eqP) in H. subst.
-      rewrite /= in_fsetD in_fset1 in H0. apply (rwP andP) in H0 as [].
+    - rewrite /= in_fsetD in_fset1 in H0. apply (rwP andP) in H0 as [].
       cut (a ∈ domm R⦅s,s0⦆ = true).
       { intros.
-        simpl in *. apply (rwP dommP) in H2 as [].
-        rewrite unionmE remmE rem_valmE setmE /= in H2.
+        simpl in *. apply (rwP dommP) in H1 as [].
+        rewrite unionmE remmE rem_valmE setmE /= in H1.
         destruct (a =P s); subst; auto.
         destruct (getm R a) eqn:?.
         - eapply (rwP dommP). eauto.
-        - inverts H2. }
+        - inverts H1. }
       eapply IHt; eauto.
     - apply (rwP andP) in H2 as [].
       rewrite /= /in_mem /= in_fsetU in H0. apply (rwP orP) in H0 as [].
@@ -1272,9 +1248,7 @@ Module Alpha.
     intros.
     gen_dep R S u. induction t; intros;
     destruct u; inverts H0.
-    - apply (rwP andP) in H2 as []. apply (rwP eqP) in H0. subst.
-      rewrite /= eq_refl /=.
-      apply IHt with (R := R⦅s,s0⦆); auto. intro_all.
+    - apply IHt with (R := R⦅s,s0⦆); auto. intro_all.
       rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H0.
       rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /=.
       destruct (x =P s); subst; auto.
@@ -1283,7 +1257,7 @@ Module Alpha.
       destruct (s0 =P s1); subst; inverts H0.
       apply H in Heqo.
       + rewrite Heqo. apply (introF eqP) in n0. rewrite n0 //.
-      + simpl in *. rewrite /= in_fsetD in_fset1 H2 andbT. apply (introF eqP) in n. rewrite n //.
+      + simpl in *. rewrite /= in_fsetD in_fset1 H1 andbT. apply (introF eqP) in n. rewrite n //.
     - apply (rwP andP) in H2 as [].
       simpl. rewrite <- (rwP andP). split;
       simpl in *; (apply IHt1 with R + apply IHt2 with R); auto;
@@ -1401,9 +1375,7 @@ Module Alpha.
       intros.
       gen_dep R S X X' Y Y' f g u W W'. induction t; intros;
       destruct u; inverts H8.
-      - apply (rwP andP) in H10 as []. apply (rwP eqP) in H8. subst.
-        rewrite /= eq_refl /=.
-        assert (f ∈ X → Tm W via fmap_HasCoDomain 𝒱 term_ordType).
+      - assert (f ∈ X → Tm W via fmap_HasCoDomain 𝒱 term_ordType).
         { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)).
           - intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
           - replace X with (domm f); cycle 1.
@@ -1419,14 +1391,15 @@ Module Alpha.
         { intro_all.
           apply H2 in H11 as [].
           simpl in *. split; auto. }
-        (unshelve epose proof (lemma5 H8 H10 _ _ _ _ H7 s s0 _ _ (Fresh_correct W) (Fresh_correct W'))); eauto.
+        (unshelve epose proof (lemma5 H8 H9 _ _ _ _ H7 s s0 _ _ (Fresh_correct W) (Fresh_correct W'))); eauto.
+        simpl.
         eapply IHt with (Y := Y ∪ {Fresh W}) (Y' := Y' ∪ {Fresh W'}) in H12; eauto.
-        + intros. simpl in *. apply codomm_Tm_set_update_substitution' in H13.
+        + simpl. intros. apply codomm_Tm_set_update_substitution' in H13.
           simpl in *. rewrite in_fsetU in_fset1 in H13. rewrite in_fsetU in_fset1.
           apply (rwP orP) in H13 as [].
           * apply H6 in H13. rewrite H13 //.
           * rewrite H13 orbT //.
-        + intros. simpl in *. apply codomm_Tm_set_update_substitution' in H13.
+        + simpl. intros. apply codomm_Tm_set_update_substitution' in H13.
           simpl in *. rewrite in_fsetU in_fset1 in H13. rewrite in_fsetU in_fset1.
           apply (rwP orP) in H13 as [].
           * apply H5 in H13. rewrite H13 //.
@@ -1597,7 +1570,7 @@ Module Alpha.
     intros.
     destruct H. rewrite -> Forall_forall in H2.
     gen_dep f X Y. induction t; intros; simpl in *.
-    - rewrite eq_refl /= /update_substitution -mapm_setm -/update_substitution -update_converse //.
+    - rewrite /= /update_substitution -mapm_setm -/update_substitution -update_converse //.
       replace (setm f s (Fresh Y)) with (f⦅s,Fresh Y⦆); cycle 1.
       { apply eq_fmap. intro_all.
         rewrite unionmE remmE rem_valmE !setmE /=.
@@ -1704,9 +1677,7 @@ Module Alpha.
     intros.
     gen_dep R S u. induction t; intros;
     destruct u; inverts H0.
-    - apply (rwP andP) in H2 as []. apply (rwP eqP) in H0. subst.
-      rewrite /= eq_refl /=.
-      apply IHt with (R := R⦅s,s0⦆); auto. intro_all.
+    - apply IHt with (R := R⦅s,s0⦆); auto. intro_all.
       rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H0.
       rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /=.
       destruct (x =P s); subst; auto.
@@ -1715,7 +1686,7 @@ Module Alpha.
       destruct (s0 =P s1); subst; inverts H0.
       apply H in Heqo.
       + rewrite Heqo. apply (introF eqP) in n0. rewrite n0 //.
-      + simpl in *. rewrite /= in_fsetD in_fset1 H2 andbT. apply (introF eqP) in n. rewrite n //.
+      + simpl in *. rewrite /= in_fsetD in_fset1 H1. apply (introF eqP) in n. rewrite n //.
       + simpl in *. rewrite /= in_fsetD in_fset1 H3 andbT. apply not_eq_sym, (introF eqP) in n0. rewrite n0 //.
     - apply (rwP andP) in H2 as [].
       simpl. rewrite <- (rwP andP). split;
@@ -1853,7 +1824,7 @@ Module Alpha.
           { apply H6, (rwP codomm_Tm_setP). exists x. split; auto. eapply (rwP codommP); eauto. }
           rewrite /= in_fsetU H15 //. }
         pose proof IHt W2' W1' g' H13 f' H12 Z2' Z1' Y2' H8 Y1' H7 X' H10 H11 H3 R' H9.
-        rewrite /= eq_refl H14 //.
+        rewrite /= H14 //.
       - simpl in *. apply (rwP andP) in H3 as [].
         apply IHt1 with (f := f) (g := g) (Y1 := Y1) (Y2 := Y2) (Z1 := Z1) (Z2 := Z2) (R := R) (W1 := W1) (W2 := W2) in H3; auto.
         apply IHt2 with (f := f) (g := g) (X := X) (Y1 := Y1) (Y2 := Y2) (Z1 := Z1) (Z2 := Z2) (R := R) (W1 := W1) (W2 := W2) in H5; auto.
@@ -2035,9 +2006,9 @@ Module Alpha.
       - gen_dep f g X Y Z. induction t; intros.
         + set z0 := Fresh Y.
           set z1 := Fresh Z.
-          assert ((`⦇f⦈ Z ∘ `⦇g⦈ Y) (abstraction s t t0) = `⦇f⦈ Z (abstraction z0 t (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t0))) by auto.
-          assert (`⦇f⦈ Z (abstraction z0 t (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t0)) = abstraction z1 t ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t0)) by auto.
-          assert (abstraction z1 t ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t0) ≡_α abstraction z1 t (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t0)).
+          assert ((`⦇f⦈ Z ∘ `⦇g⦈ Y) (abstraction s t) = `⦇f⦈ Z (abstraction z0 (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t))) by auto.
+          assert (`⦇f⦈ Z (abstraction z0 (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t)) = abstraction z1 ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t)) by auto.
+          assert (abstraction z1 ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t) ≡_α abstraction z1 (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t)).
           { unshelve epose proof IHt (Z ∪ {z1}) (Y ∪ {z0}) (X ∪ {s}) H1 (g[s,variable z0]) _ (f[z0,variable z1]) _ as [].
             - apply update_substitution_type.
               + apply enlarge_codomain with (P__sub := Tm Y); auto. intros.
@@ -2048,14 +2019,14 @@ Module Alpha.
                 apply superset_in_Tm with (X__sub := Z); auto. intros. simpl in *. rewrite in_fsetU H5 //.
               + rewrite /= in_fsetU in_fset1 eq_refl orbT //.
             - apply α_equivalent'_supermap with (R__super := (1__x)⦅z1,z1⦆) in H4.
-              + exists x. rewrite /= eq_refl //.
+              + exists x. auto.
               + intros.
                 rewrite mkfmapfE in H5.
                 rewrite unionmE remmE rem_valmE setmE /= mkfmapfE.
                 destruct (k \in x) eqn:?; rewrite Heqb in H5; inverts H5.
                 destruct (v =P z1); subst; auto.
                 apply not_eq_sym, (introF eqP) in n. rewrite Heqb n //. }
-          assert (abstraction z1 t (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t0) ≡_α abstraction z1 t (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t0)).
+          assert (abstraction z1 (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t) ≡_α abstraction z1 (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t)).
           { set (f' := mapm (`⦇f[z0,variable z1]⦈ (Z ∪ {z1})) (g[s,variable z0])).
             set (g' := (mapm (`⦇f⦈ Z) g)[s,variable z1]).
             assert (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∈ Tm (Y ∪ {z0}) → Tm (Z ∪ {z1})).
@@ -2092,7 +2063,7 @@ Module Alpha.
                   * apply in_Tm_free_variables.
                 + destruct (getm g x0) eqn:?; inverts H6.
                   destruct H. rewrite -> Forall_forall in H6.
-                  assert (t1 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H6 in H7.
+                  assert (t0 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H6 in H7.
                   apply superset_in_Tm with (X__super := Y ∪ {z0}) in H7; auto. intros.
                   simpl in *. rewrite in_fsetU H8 //. }
             assert (g' ∈ (X ∪ {s}) → Tm (Z ∪ {z1})).
@@ -2118,13 +2089,13 @@ Module Alpha.
                   * apply in_Tm_free_variables.
                 + destruct (getm g x0) eqn:?; inverts H7.
                   destruct H. rewrite -> Forall_forall in H7.
-                  assert (t1 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H7 in H8.
+                  assert (t0 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H7 in H8.
                   apply superset_in_Tm with (X__sub := Z).
                   * intros. simpl in *. rewrite in_fsetU H9 //.
                   * eapply lift_substitution_type'; eauto. }
             pose proof (@lift_update_substitution_compose_substitution_update X Y Z f g s z0 z1 H H0 ltac:(apply Fresh_correct) ltac:(apply Fresh_correct)).
-            destruct (@lift_substitution_indistinguishable_substitutions' (X ∪ {s}) _ _ _ _ f' g' t0 H6 H7 ltac:(auto) ltac:(auto) H1 H8).
-            exists x. rewrite /= eq_refl update_identity.
+            destruct (@lift_substitution_indistinguishable_substitutions' (X ∪ {s}) _ _ _ _ f' g' t H6 H7 ltac:(auto) ltac:(auto) H1 H8).
+            exists x. rewrite /= update_identity.
             destruct (z1 ∈ x) eqn:?.
             - replace (x ∪ {z1}) with x; auto.
               apply eq_fset. intro_all.
@@ -2134,7 +2105,7 @@ Module Alpha.
               rewrite mkfmapfE in H10.
               rewrite mkfmapfE in_fsetU in_fset1.
               destruct (k \in x) eqn:?; rewrite Heqb // in H10. }
-          assert (abstraction z1 t (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t0) = `⦇`⦇f⦈ Z ∘ g⦈ Z (abstraction s t t0)) by auto.
+          assert (abstraction z1 (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t) = `⦇`⦇f⦈ Z ∘ g⦈ Z (abstraction s t)) by auto.
           rewrite H2 H3.
           etransitivity; eauto.
         + simpl in *. apply (rwP andP) in H1 as [].
@@ -2350,7 +2321,7 @@ Module Alpha.
     - apply (rwP hasP).
       gen_dep f. induction t; intros; simpl in *.
       + rewrite in_fsetD in_fset1 in H0. apply (rwP andP) in H0 as [].
-        replace (FV (`⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ (codomm_Tm_set f ∪ {Fresh (codomm_Tm_set f)}) t0)) with (FV (⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ t0)) in H1; cycle 1.
+        replace (FV (`⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ (codomm_Tm_set f ∪ {Fresh (codomm_Tm_set f)}) t)) with (FV (⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ t)) in H1; cycle 1.
         { apply α_equivalent_implies_same_free_variables.
           eapply codomm_Tm_set_correct.
           - apply update_substitution_type; auto.
@@ -2394,8 +2365,8 @@ Module Alpha.
       gen_dep f. induction t; intros; simpl in *.
       + rewrite in_fsetD in_fset1 in H0. apply (rwP andP) in H0 as [].
         rewrite in_fsetD in_fset1.
-        assert (x \in FV (`⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ (codomm_Tm_set f ∪ {Fresh (codomm_Tm_set f)}) t0)).
-        { replace (FV (`⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ (codomm_Tm_set f ∪ {Fresh (codomm_Tm_set f)}) t0)) with (FV (⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ t0)); cycle 1.
+        assert (x \in FV (`⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ (codomm_Tm_set f ∪ {Fresh (codomm_Tm_set f)}) t)).
+        { replace (FV (`⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ (codomm_Tm_set f ∪ {Fresh (codomm_Tm_set f)}) t)) with (FV (⦇f[s,variable (Fresh (codomm_Tm_set f))]⦈ t)); cycle 1.
           { apply α_equivalent_implies_same_free_variables.
             eapply codomm_Tm_set_correct.
             - apply update_substitution_type; auto.
@@ -2784,7 +2755,7 @@ Module Alpha.
 
   (* TODO Formalize the resulting Kliesli-category. *)
 
-  Implicit Types n i : nat.
+  Implicit Types (n i : nat) (ϕ : {fmap 𝒱 → nat}).
 
   #[global] Instance nat_HasMembers : HasMembers nat nat bool :=
     { is_member_of i n := i < n }.
@@ -2796,7 +2767,7 @@ Module Alpha.
 
   #[local] Coercion de_Bruijn_variable : nat >-> de_Bruijn_term.
 
-  Implicit Types dBt dBu : de_Bruijn_term.
+  Implicit Types (dBt dBu : de_Bruijn_term).
 
   Fixpoint de_Bruijn_Tm n dBt : bool :=
     match dBt with
@@ -2849,4 +2820,25 @@ Module Alpha.
       replace (n.+1 < n0.+1) with (n < n0) in H4 by auto.
       rewrite H4 // in H0.
   Qed.
+
+  Definition ϕ_add x : {fmap 𝒱 → nat} -> {fmap 𝒱 → nat} :=
+    mapim (fun y ϕy => if y == x then 0 else ϕy + 1).
+
+  #[local] Notation "ϕ '^+' x" := (ϕ_add x ϕ).
+
+  #[local] Reserved Notation "t '^' ϕ" (at level 30, ϕ at level 30).
+
+  Fixpoint to_de_Bruijn t (ϕ : {fmap 𝒱 → nat}) : de_Bruijn_term :=
+    match t with
+    | variable x =>
+      de_Bruijn_variable (getm ϕ x)
+    | application t u =>
+      de_Bruijn_application (t^ϕ) (u^ϕ)
+    | abstraction x t =>
+      de_Bruijn_abstraction (t^(ϕ^+x))
+    end
+
+  where "t '^' ϕ" := (to_de_Bruijn t ϕ).
+
+  #[local] Notation "t '^ϕ'" := (to_de_Bruijn t) (at level 40).
 End Alpha.
