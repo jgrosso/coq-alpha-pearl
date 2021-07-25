@@ -12,7 +12,8 @@
    - Create specialized versions of lemmas that use e.g. [domm f] instead of [X] and [codomm_Tm_set f] instead of [Y].
    - Add concrete examples.
    - Use SSReflect views instead of [rwP]?
-   - Set [Hint Mode]s correctly and remove unnecessary casts (and the [via] notation). *)
+   - Break up into separate files?
+   - Remove unnecessary casts. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
 From mathcomp Require Import choice eqtype seq ssrbool ssrfun ssrnat.
@@ -56,7 +57,6 @@ Module Alpha.
     | variable x => x ∈ X
     end.
 
-  (* TODO Use (currently defined below) [∈] notation. *)
   Section in_Tm.
     #[local] Reserved Notation "t '∈' 'Tm' X" (at level 40).
 
@@ -261,10 +261,6 @@ Module Alpha.
   #[local] Notation "f '∈' X '→' Y" :=
     (has_co_domm f X Y) (at level 70, X at next level, Y at next level) : type_scope.
 
-  (* TODO Remove, and also remove explicit type annotations of [: Prop] where possible *)
-  #[local] Notation "f '∈' X '→' Y 'via' H" :=
-    (@has_co_domm _ _ _ H _ _ _ _ f X Y) (at level 70, X at next level, Y at next level) : type_scope.
-
   Definition identity : {fset 𝒱} -> {fmap 𝒱 → 𝒱} := mkfmapf id.
 
   Class Identity (A : Type) :=
@@ -291,7 +287,7 @@ Module Alpha.
     inverts H. auto.
   Qed.
 
-  Lemma identity_type' : forall X, (1__X) ∈ X → X via fmap_HasCoDomain _ _.
+  Lemma identity_type' : forall X, (1__X : {fmap 𝒱 → 𝒱}) ∈ X → X.
   Proof.
     intros.
     repeat (split; intros); simpl in *.
@@ -771,9 +767,9 @@ Module Alpha.
 
   Lemma update_substitution_type :
     forall X Y f x t,
-      f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+      f ∈ X → Tm Y ->
       t ∈ Tm Y : Prop ->
-      f[x,t] ∈ (X ∪ {x}) → Tm Y via fmap_HasCoDomain 𝒱 term_ordType.
+      f[x,t] ∈ (X ∪ {x}) → Tm Y.
   Proof.
     intros.
     destruct H.
@@ -946,8 +942,8 @@ Module Alpha.
   Lemma enlarge_codomain :
     forall X (P__sub P__super : term -> Prop) f,
       P__sub ⊆ P__super ->
-      f ∈ X → P__sub via fmap_HasCoDomain 𝒱 term_ordType ->
-      f ∈ X → P__super via fmap_HasCoDomain 𝒱 term_ordType.
+      f ∈ X → P__sub ->
+      f ∈ X → P__super.
   Proof.
     intros.
     destruct H0. rewrite -> Forall_forall in H1.
@@ -960,8 +956,8 @@ Module Alpha.
 
   Lemma lift_substitution_type' :
     forall X Y f,
-      f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-      `⦇f⦈ Y ∈ Tm X → Tm Y via function_HasCoDomain term_ordType term_ordType.
+      f ∈ X → Tm Y ->
+      `⦇f⦈ Y ∈ Tm X → Tm Y.
   Proof.
     intro_all.
     rewrite /in_mem /=.
@@ -984,8 +980,8 @@ Module Alpha.
 
   Lemma lift_substitution_type :
     forall X Y f,
-      f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-      ⦇f⦈ ∈ Tm X → Tm Y via function_HasCoDomain term_ordType term_ordType.
+      f ∈ X → Tm Y ->
+      ⦇f⦈ ∈ Tm X → Tm Y.
   Proof.
     intro_all.
     apply superset_in_Tm with (X__sub := codomm_Tm_set f).
@@ -1005,7 +1001,7 @@ Module Alpha.
   Lemma update_substitution_identity :
     forall X x u,
       u ∈ Tm X : Prop ->
-      (1__X)[x,u] ∈ X ∪ {x} → Tm X via fmap_HasCoDomain 𝒱 term_ordType.
+      (1__X)[x,u] ∈ X ∪ {x} → Tm X.
   Proof.
     intro_all.
     repeat split; intros; simpl in *.
@@ -1030,7 +1026,7 @@ Module Alpha.
   Lemma lift_substitution_update_identity_type :
     forall X x u,
       u ∈ Tm X : Prop ->
-      `⦇(1__X : {fmap 𝒱 → term})[x,u]⦈ X ∈ Tm (X ∪ {x}) → Tm X via function_HasCoDomain term_eqType term_eqType.
+      `⦇(1__X : {fmap 𝒱 → term})[x,u]⦈ X ∈ Tm (X ∪ {x}) → Tm X.
   Proof.
     intros.
     eapply lift_substitution_type'; eauto.
@@ -1160,7 +1156,7 @@ Module Alpha.
   Lemma α_equivalent'_implies_related_free_variables :
     forall X Y R t u,
       partial_bijection R ->
-      R ∈ X → Y via fmap_HasCoDomain 𝒱 𝒱 ->
+      R ∈ X → Y ->
       t ≡_α^R u ->
       free_variables u = pimfset (getm R) (free_variables t).
   Proof.
@@ -1311,8 +1307,8 @@ Module Alpha.
 
     #[program] Lemma lemma5 :
       forall R S X X' Y Y' f g,
-        f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-        g ∈ X' → Tm Y' via fmap_HasCoDomain 𝒱 term_ordType ->
+        f ∈ X → Tm Y ->
+        g ∈ X' → Tm Y' ->
         R ⊆ X × X' ->
         S ⊆ Y × Y' ->
         partial_bijection R ->
@@ -1363,8 +1359,8 @@ Module Alpha.
 
     #[program] Proposition substitution_preserves_α_congruence'' :
       forall R S X X' Y Y' f g W W',
-        f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-        g ∈ X' → Tm Y' via fmap_HasCoDomain 𝒱 term_ordType ->
+        f ∈ X → Tm Y ->
+        g ∈ X' → Tm Y' ->
         R ⊆ X × X' ->
         S ⊆ W × W' ->
         partial_bijection R ->
@@ -1377,13 +1373,13 @@ Module Alpha.
       intros.
       gen_dep R S X X' Y Y' f g u W W'. induction t; intros;
       destruct u; inverts H8.
-      - assert (f ∈ X → Tm W via fmap_HasCoDomain 𝒱 term_ordType).
+      - assert (f ∈ X → Tm W).
         { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)).
           - intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
           - replace X with (domm f); cycle 1.
             { eapply substitution_type_domm; eauto. }
             apply substitution_type. }
-        assert (g ∈ X' → Tm W' via fmap_HasCoDomain 𝒱 term_ordType).
+        assert (g ∈ X' → Tm W').
         { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set g)).
           - intros. apply superset_in_Tm with (X__sub := codomm_Tm_set g); auto.
           - replace X' with (domm g); cycle 1.
@@ -1454,8 +1450,8 @@ Module Alpha.
 
     #[program] Corollary substitution_preserves_α_congruence_identity' :
       forall X Y f g W1 W2,
-        f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-        g ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+        f ∈ X → Tm Y ->
+        g ∈ X → Tm Y ->
         codomm_Tm_set f ⊆ W1 ->
         codomm_Tm_set g ⊆ W2 ->
         (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__(W1 ∩ W2)) getm g x) ->
@@ -1476,8 +1472,8 @@ Module Alpha.
 
     #[program] Corollary substitution_preserves_α_congruence_identity :
       forall X Y f g,
-        f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-        g ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+        f ∈ X → Tm Y ->
+        g ∈ X → Tm Y ->
         (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__Y) getm g x) ->
         forall t u, t ≡_α^(1__X) u -> `⦇f⦈ Y t ≡_α^(1__Y) `⦇g⦈ Y u.
     Proof.
@@ -1500,8 +1496,8 @@ Module Alpha.
 
     #[program] Theorem substitution_preserves_α_congruence :
       forall X Y f g,
-        f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-        g ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+        f ∈ X → Tm Y ->
+        g ∈ X → Tm Y ->
         (forall x, x ∈ X : Prop -> getm f x `≡_α getm g x) ->
         forall t u, t ∈ Tm X : Prop -> u ∈ Tm X : Prop -> t ≡_α u -> `⦇f⦈ Y t ≡_α `⦇g⦈ Y u.
     Proof.
@@ -1551,7 +1547,7 @@ Module Alpha.
 
   Theorem substitution_respects_α_equivalence :
     forall X Y f t u,
-      f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+      f ∈ X → Tm Y ->
       t ∈ Tm X : Prop ->
       u ∈ Tm X : Prop ->
       t ≡_α u ->
@@ -1630,7 +1626,7 @@ Module Alpha.
 
   Lemma η_type :
     forall X,
-      η__ X ∈ X → Tm X via fmap_HasCoDomain 𝒱 term_ordType.
+      η__ X ∈ X → Tm X.
   Proof.
     intro_all.
     rewrite /= /η__.
@@ -1648,7 +1644,7 @@ Module Alpha.
 
   Lemma update_substitution_overwrite :
     forall X Y f x y y',
-      f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+      f ∈ X → Tm Y ->
       f[x,variable y][x,variable y'] = f[x, variable y'].
   Proof.
     intros.
@@ -1659,7 +1655,7 @@ Module Alpha.
 
   Lemma update_substitution_reorder :
     forall X Y f x x' y y',
-      f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+      f ∈ X → Tm Y ->
       x <> x' ->
       f[x,variable y][x',variable y'] = f[x',variable y'][x,variable y].
   Proof.
@@ -1933,8 +1929,8 @@ Module Alpha.
 
     #[program] Lemma lift_update_substitution_compose_substitution_update :
       forall X Y Z f g x z0 z1,
-        g ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
-        f ∈ Y → Tm Z via fmap_HasCoDomain 𝒱 term_ordType ->
+        g ∈ X → Tm Y ->
+        f ∈ Y → Tm Z ->
         z1 ∉ Z ->
         z0 ∉ Y ->
         forall v, v \in (X ∪ {x}) -> getm (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[x,variable z0]) v `≡_α getm ((`⦇f⦈ Z ∘ g)[x,variable z1]) v.
@@ -2130,7 +2126,7 @@ Module Alpha.
       forall (f : term -> term) g X Y Z,
         f ∈ Tm Y → Tm Z ->
         g ∈ X → Tm Y ->
-        (f ∘ g) ∈ X → Tm Z via fmap_HasCoDomain 𝒱 term_ordType.
+        (f ∘ g) ∈ X → Tm Z.
     Proof.
       intros.
       destruct H0. rewrite -> Forall_forall in H1.
@@ -2216,7 +2212,7 @@ Module Alpha.
 
   Lemma free_variables_lift_substitution_subset :
     forall X Y f t,
-      f ∈ X → Tm Y via fmap_HasCoDomain 𝒱 term_ordType ->
+      f ∈ X → Tm Y ->
       t ∈ Tm X : Prop ->
       free_variables (⦇f⦈ t) ⊆ Y.
   Proof.
