@@ -2753,7 +2753,7 @@ Module Alpha.
 
   (* TODO Formalize the resulting Kliesli-category. *)
 
-  Implicit Types (n i : nat) (ϕ ψ : {fmap 𝒱 → nat}).
+  Implicit Types (c d i j n : nat) (ϕ ψ : {fmap 𝒱 → nat}).
 
   #[global] Instance nat_HasMembers : HasMembers nat nat bool :=
     { is_member_of i n := i < n }.
@@ -3094,4 +3094,62 @@ Module Alpha.
        + apply identity_type.
        + eapply identity_is_pullback; eauto.
    Qed.
+
+   (* TODO "Show that -^ϕ preserves substitution, i.e. it maps substitutions on named terms as given here to substitution on de Bruijn terms, e.g. as defined in (Altenkirch & Reus, 1999). *)
+
+   #[local] Reserved Notation "'↑_' c '^' d dBt" (at level 40, c at level 0, d at level 0).
+
+   Fixpoint dPlaceShift d c dBt : de_Bruijn_term :=
+     match dBt with
+     | de_Bruijn_variable k =>
+       if k < c
+       then k
+       else k + d
+     | de_Bruijn_abstraction dBt =>
+       de_Bruijn_abstraction (↑_(c + 1)^d dBt)
+     | de_Bruijn_application dBt dBu =>
+       de_Bruijn_application (↑_c^d dBt) (↑_c^d dBu)
+     end
+
+   where "'↑_' c '^' d dBt" := (dPlaceShift d c dBt).
+
+   #[local] Notation "'↑^' d dBt" := (↑_0^d dBt) (at level 40, d at level 0).
+
+   Example TAPL_6_2_2_1 : ↑^2 (de_Bruijn_abstraction (de_Bruijn_abstraction (de_Bruijn_application 1 (de_Bruijn_application 0 2)))) = de_Bruijn_abstraction (de_Bruijn_abstraction (de_Bruijn_application 1 (de_Bruijn_application 0 4))).
+   Proof. reflexivity. Qed.
+
+   Example TAPL_6_2_2_2 : ↑^2 (de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 1) (de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 1) 2)))) = de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 3) (de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 1) 4))).
+   Proof. reflexivity. Qed.
+
+   Lemma TAPL_6_2_3 :
+     forall n dBt c d,
+       dBt ∈ Tm^db n : Prop ->
+       ↑_c^d dBt ∈ Tm^db (n + d) : Prop.
+   Proof.
+     intros.
+     gen_dep n c d. induction dBt; intros; simpl in *.
+     - eapply IHdBt in H; eauto.
+     - apply (rwP andP) in H as [].
+       rewrite <- (rwP (@andP (Tm^db (n + d) (↑_c^d dBt1)) (Tm^db (n + d) (↑_c^d dBt2)))).
+       split; eauto.
+     - destruct (n < c) eqn:?.
+       + rewrite ltn_addr //.
+       + rewrite ltn_add2r //.
+   Qed.
+
+   #[local] Reserved Notation "'[' j '↦' s ']' dBt" (at level 40).
+
+   Fixpoint de_Bruijn_substitution j (s : de_Bruijn_term) dBt : de_Bruijn_term :=
+     match dBt with
+     | de_Bruijn_variable k =>
+       if k == j
+       then s
+       else de_Bruijn_variable k
+     | de_Bruijn_abstraction t1 =>
+       de_Bruijn_abstraction ([j + 1 ↦ ↑^1 s]t1)
+     | de_Bruijn_application t1 t2 =>
+       de_Bruijn_application ([j↦s]t1) ([j↦s]t2)
+     end
+
+   where "'[' j '↦' s ']' dBt" := (de_Bruijn_substitution j s dBt).
 End Alpha.
