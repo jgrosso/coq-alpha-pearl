@@ -12,7 +12,7 @@
    - Create specialized versions of lemmas that use e.g. [domm f] instead of [X] and [codomm_Tm_set f] instead of [Y].
    - Set [Hint Mode]s correctly and remove unnecessary casts (and the [via] notation). *)
 
-From Coq Require Import Classes.RelationClasses Lia Lists.List Program.Equality Setoid ssreflect.
+From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
 From mathcomp Require Import choice eqtype seq ssrbool ssrfun ssrnat.
 From deriving Require Import deriving.
 From extructures Require Import fmap fset ord.
@@ -2821,39 +2821,63 @@ Module Alpha.
       rewrite H4 // in H0.
   Qed.
 
-  Definition update_ϕ x : {fmap 𝒱 → nat} -> {fmap 𝒱 → nat} :=
-    mapim (fun y ϕ_y => if y == x then 0 else ϕ_y + 1).
+  Definition update_ϕ x ϕ : {fmap 𝒱 → nat} :=
+    setm (mapim (fun y ϕ_y => ϕ_y + 1) ϕ) x 0.
 
   #[local] Notation "ϕ '^+' x" := (update_ϕ x ϕ).
 
-  Definition update_ϕ_type_new :
+  Lemma update_ϕ_correct :
+    forall X n ϕ x y,
+      ϕ ∈ X → n ->
+      y ∈ X ∪ {x} : Prop ->
+      getm (ϕ^+x) y =
+      if y == x
+      then Some 0
+      else omap S (getm ϕ y).
+  Proof.
+    simpl. intros.
+    rewrite setmE mapimE.
+    rewrite /= in_fsetU in_fset1 in H0. apply (rwP orP) in H0 as [].
+    - destruct (y =P x); auto.
+      apply H, (rwP dommP) in H0 as []. rewrite H0 /= addn1 //.
+    - rewrite H0 //.
+  Qed.
+
+  Definition update_ϕ_type :
     forall X n ϕ x,
       ϕ ∈ X → n ->
-      ϕ^+x ∈ X → S n.
+      ϕ^+x ∈ X ∪ {x} → S n.
   Proof.
     intros.
     repeat (split; intros); simpl in *.
     - apply (rwP dommP) in H0 as [].
-      rewrite mapimE in H0.
+      rewrite setmE mapimE in H0.
+      rewrite in_fsetU in_fset1.
+      destruct (a =P x); subst.
+      { rewrite orbT //. }
+      rewrite orbF.
       destruct (getm ϕ a) eqn:?; inverts H0.
       assert (a \in domm ϕ) by (apply (rwP dommP); eauto). apply H in H0. auto.
     - apply (rwP dommP).
-      rewrite mapimE.
-      apply H, (rwP dommP) in H0 as [].
-      rewrite H0.
-      destruct (a =P x); subst; simpl; eauto.
+      rewrite setmE mapimE.
+      rewrite in_fsetU in_fset1 in H0. apply (rwP orP) in H0 as [].
+      + apply H, (rwP dommP) in H0 as [].
+        rewrite H0.
+        destruct (a =P x); subst; simpl; eauto.
+      + rewrite H0. eauto.
     - rewrite -> Forall_forall. intro_all.
       destruct H. rewrite -> Forall_forall in H1.
       apply In_mem, (rwP codommP) in H0 as [].
-      rewrite mapimE in H0.
+      rewrite setmE mapimE in H0.
       destruct (getm ϕ x1) eqn:?; inverts H0.
       assert (n0 \in codomm ϕ) by (apply (rwP codommP); eauto). apply In_mem, H1 in H0.
-      destruct (x1 =P x); subst.
-      + destruct n; auto.
+      destruct (x1 =P x); subst; inverts H3.
+      + rewrite -[n.+1]addn1 ltn_addr //. destruct n; auto.
       + rewrite addn1 //.
+      + destruct (x1 =P x); subst; inverts H3. auto.
   Qed.
 
-  Lemma update_ϕ_injective :
+  Lemma injective_update_ϕ :
     forall ϕ x,
       is_injective ϕ ->
       is_injective (ϕ^+x).
@@ -2862,21 +2886,21 @@ Module Alpha.
     apply (rwP (injectivemP _)) in H.
     apply (rwP (injectivemP (ϕ^+x))). intro_all.
     apply (rwP dommP) in H0 as [].
-    rewrite mapimE in H0.
-    rewrite !mapimE in H1.
+    rewrite setmE mapimE in H0.
+    rewrite !setmE !mapimE in H1.
     destruct (x0 =P x); subst.
-    - destruct (getm ϕ x) eqn:?; inverts H0.
-      destruct (getm ϕ x2) eqn:?; inverts H1.
+    - inverts H0.
       destruct (x2 =P x); subst; auto.
-      rewrite addn1 // in H2.
-    - destruct (getm ϕ x0) eqn:?; inverts H0.
       destruct (getm ϕ x2) eqn:?; inverts H1.
-      destruct (x2 =P x); subst.
-      + rewrite addn1 // in H2.
-      + rewrite !addn1 in H2. inverts H2.
-        rewrite -Heqo0 in Heqo.
-        apply H in Heqo; auto.
-        apply (rwP dommP). rewrite Heqo. eauto.
+      rewrite addn1 // in H2.
+    - destruct (x2 =P x); subst;
+      destruct (getm ϕ x0) eqn:?; inverts H0.
+      + inverts H1.
+        rewrite addn1 // in H2.
+      + destruct (getm ϕ x2) eqn:?; inverts H1.
+        rewrite !addn1 in H2. inverts H2.
+        rewrite -Heqo0 in Heqo. apply H in Heqo; auto.
+        rewrite Heqo0 in Heqo. apply (rwP dommP). eauto.
   Qed.
 
   #[local] Reserved Notation "t '^' ϕ" (at level 30, ϕ at level 30).
@@ -2884,7 +2908,7 @@ Module Alpha.
   Fixpoint to_de_Bruijn t ϕ : de_Bruijn_term :=
     match t with
     | variable x =>
-      de_Bruijn_variable (getm ϕ x)
+      de_Bruijn_variable (odflt 0 (getm ϕ x))
     | application t u =>
       de_Bruijn_application (t^ϕ) (u^ϕ)
     | abstraction x t =>
@@ -2896,62 +2920,69 @@ Module Alpha.
   (* TODO State and prove [to_de_Bruijn_type]. *)
 
   Definition is_pullback R ϕ ψ : Prop :=
-    forall x y, R x y <-> getm ϕ x = getm ψ y.
+    forall x y, R x y <-> (x ∈ domm ϕ /\ getm ϕ x = getm ψ y).
 
   Lemma lemma9' :
-    forall X Y n R ϕ ψ t u x y,
+    forall X Y n R ϕ ψ x y,
       R ⊆ X × Y ->
       ϕ ∈ X → n ->
       ψ ∈ Y → n ->
       is_injective ϕ ->
       is_injective ψ ->
       is_pullback R ϕ ψ ->
-      x ∈ X : Prop ->
-      y ∈ Y : Prop ->
       is_pullback (R⦅x,y⦆) (ϕ^+x) (ψ^+y).
   Proof.
     simpl. intro_all.
-    rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE !mapimE /=.
+    rewrite /fmap_to_Prop unionmE remmE rem_valmE !setmE !mapimE /=.
     split; intros.
-    - apply H0, (rwP dommP) in H5 as [].
-      apply H1, (rwP dommP) in H6 as [].
-      destruct (x0 =P x); subst.
-      { inverts H7. rewrite H5 H6 eq_refl //. }
+    - destruct (x0 =P x); subst.
+      { inverts H5. rewrite eq_refl.
+        split; auto. apply (rwP dommP). rewrite setmE mapimE eq_refl. eauto. }
       destruct (getm R x0) eqn:?; cycle 1.
-      { inverts H7. }
-      destruct (y =P s); subst; inverts H7.
+      { inverts H5. }
+      destruct (y =P s); subst; inverts H5.
       pose proof Heqo. apply H in Heqo as [].
-      apply H0, (rwP dommP) in H8 as [].
-      apply H1, (rwP dommP) in H9 as [].
+      apply H0, (rwP dommP) in H6 as [].
+      apply H1, (rwP dommP) in H7 as [].
       apply not_eq_sym, (introF eqP) in n1.
-      apply H4 in H7. rewrite H8 H9 in H7. inverts H7.
-      rewrite H8 H9 n1 //.
-    - apply H0, (rwP dommP) in H5 as [].
-      apply H1, (rwP dommP) in H6 as [].
+      apply H4 in H5. rewrite H6 H7 in H5. inverts H5.
+      rewrite H6 H7 n1.
+      split.
+      + apply (rwP dommP). apply (introF eqP) in n0. rewrite setmE mapimE n0 H6 /=. eauto.
+      + inverts H9. auto.
+    - destruct H5.
       destruct (x0 =P x); subst.
-      + rewrite H5 /= in H7.
-        destruct (getm ψ y0) eqn:?; inverts H7.
-        destruct (y0 =P y); subst; auto.
-        rewrite addn1 // in H9.
+      + destruct (y0 =P y); subst; auto.
+        destruct (getm ψ y0) eqn:?; inverts H6.
+        rewrite addn1 // in H8.
       + destruct (getm R x0) eqn:?.
         * pose proof Heqo.
-          apply H in H8 as [].
-          apply H0, (rwP dommP) in H8 as [].
-          apply H1, (rwP dommP) in H9 as [].
-          rewrite H8 in H7.
-          destruct (getm ψ y0) eqn:?; cycle 1.
-          { inverts H7. }
-          destruct (y0 =P y); subst; inverts H7;
-          rewrite !addn1 // in H11. inverts H11.
-          assert (R x0 y0). { apply H4. rewrite H8 Heqo0 //. }
-          rewrite H7 in Heqo. inverts Heqo.
+          apply H in H7 as [].
+          apply H0, (rwP dommP) in H7 as [].
+          apply H1, (rwP dommP) in H8 as [].
+          rewrite H7 in H6.
+          destruct (y0 =P y); subst.
+          { inverts H6. rewrite addn1 // in H10. }
+          destruct (getm ψ y0) eqn:?; inverts H6.
+          rewrite !addn1 // in H10. inverts H10.
+          assert (R x0 y0). { apply H4. rewrite H7 Heqo0 //. split; auto. apply (rwP dommP). eauto. }
+          rewrite H6 in Heqo. inverts Heqo.
           destruct (y =P s); subst; auto.
           contradiction.
         * destruct (getm ϕ x0) eqn:?;
-          destruct (getm ψ y0) eqn:?; inverts H7.
-          -- destruct (y0 =P y); subst; rewrite !addn1 // in H9. inverts H9.
-             rewrite -Heqo1 in Heqo0. apply H4 in Heqo0. rewrite Heqo0 // in Heqo.
-          -- rewrite -Heqo1 in Heqo0. apply H4 in Heqo0. rewrite Heqo0 // in Heqo.
+          destruct (y0 =P y); subst; inverts H6.
+          -- rewrite addn1 // in H8.
+          -- destruct (getm ψ y0) eqn:?; inverts H8.
+             rewrite !addn1 // in H7. inverts H7.
+             rewrite -Heqo1 in Heqo0.
+             assert (x0 \in domm ϕ). { apply (rwP dommP). rewrite Heqo0 Heqo1. eauto. }
+             assert (x0 \in domm ϕ /\ getm ϕ x0 = getm ψ y0) by auto.
+             apply H4 in H7. rewrite H7 // in Heqo.
+          -- destruct (getm ψ y0) eqn:?; inverts H8.
+             rewrite -Heqo1 in Heqo0.
+             apply (rwP dommP) in H5 as [].
+             apply (introF eqP) in n0.
+             rewrite setmE mapimE n0 Heqo0 Heqo1 // in H5.
   Qed.
 
   Lemma lemma9 :
@@ -2967,23 +2998,85 @@ Module Alpha.
       t ≡_α^R u <-> t^ϕ = u^ψ.
   Proof.
     intros.
-    gen_dep X Y n R ϕ ψ u. induction t; intros; split; intros.
-    - destruct u; inverts H7.
-      simpl in *. f_equal.
+    gen_dep X Y n R ϕ ψ u. induction t; intros; split; intros;
+    destruct u; inverts H7; simpl in *.
+    - f_equal.
       eapply IHt; eauto.
-      + apply update_ϕ_injective. auto.
-      + apply update_ϕ_injective. auto.
-      + eapply lemma9' with (X := X ∪ {s}); eauto.
-        * intros.
-          apply H in H7 as [].
-          rewrite /= in_fsetU H7. eauto.
+      + apply injective_update_ϕ. auto.
+      + apply injective_update_ϕ. auto.
+      + eapply lemma9'; simpl; eauto.
+      + apply update_ϕ_type. apply H1.
+      + apply update_type; auto.
+      + apply update_ϕ_type. auto.
+    - eapply IHt in H9; eauto.
+      + apply injective_update_ϕ. auto.
+      + apply injective_update_ϕ. auto.
+      + eapply lemma9'; simpl; eauto.
+      + apply update_ϕ_type; auto. apply H1.
+      + apply update_type; auto.
+      + apply update_ϕ_type; auto.
+    - apply (rwP andP) in H5 as [], H6 as [], H9 as [].
+      eapply IHt1 with (ψ := ψ) in H9; eauto.
+      eapply IHt2 with (ψ := ψ) in H10; eauto.
+      rewrite H9 H10 //.
+    - apply (rwP andP) in H5 as [], H6 as [].
+      eapply IHt1 in H9; eauto.
+      eapply IHt2 in H10; eauto.
+      rewrite H9 H10 //.
+    - apply (rwP eqP) in H9.
+      apply H0, (rwP dommP) in H5 as [].
+      apply H1, (rwP dommP) in H6 as [].
+      cut (getm ϕ s = getm ψ s0).
+      { intros. rewrite H7 //. }
+      apply H4. auto.
+    - rewrite <- (rwP eqP).
+      apply H0, (rwP dommP) in H5 as [].
+      apply H1, (rwP dommP) in H6 as [].
+      rewrite H5 H6 /= in H9. subst.
+      rewrite -H6 in H5.
+      apply H4. split; auto.
+      rewrite H6 in H5. apply (rwP dommP). eauto.
+  Qed.
+
+  Lemma identity_is_pullback :
+    forall n X ϕ,
+      ϕ ∈ X → n ->
+      is_injective ϕ ->
+      is_pullback (1__X) ϕ ϕ.
+  Proof.
+    intros.
+    repeat (split; intros).
+    - rewrite /fmap_to_Prop mkfmapfE in H1.
+      destruct (x \in X) eqn:?; rewrite Heqb in H1; inverts H1.
+      apply H. auto.
+    - rewrite /fmap_to_Prop mkfmapfE in H1. simpl in *.
+      destruct (x \in X) eqn:?; rewrite Heqb in H1; inverts H1. auto.
+    - destruct H1.
+      rewrite /fmap_to_Prop mkfmapfE. simpl in *.
+      apply H in H1. rewrite H1.
+      apply (rwP (injectivemP _)) in H0.
+      apply H0 in H2; subst; auto.
+      apply H. auto.
+  Qed.
 
   Proposition to_de_Bruijn_chooses_canonical_representations :
-    forall t u ϕ,
+    forall X n t u ϕ,
+      ϕ ∈ X → n ->
       is_injective ϕ ->
+      t ∈ Tm X : Prop ->
+      u ∈ Tm X : Prop ->
       t ≡_α u <-> t^ϕ = u^ϕ.
    Proof.
      intros.
      split; intros.
-     -
+     - inverts H0.
+       eapply lemma9 with (n := n); eauto.
+       + apply identity_type.
+       + eapply identity_is_pullback; eauto.
+       + apply α_equivalent'_with_Tm_set; auto.
+     - eapply lemma9 with (n := n) in H3; eauto.
+       + eexists. apply H3.
+       + apply identity_type.
+       + eapply identity_is_pullback; eauto.
+   Qed.
 End Alpha.
