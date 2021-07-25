@@ -10,6 +10,8 @@
    - Improve names of lemmas/theorems/etc.
    - Standardize naming for [domm], [codomm], [co_domm], [co_domain], etc.
    - Create specialized versions of lemmas that use e.g. [domm f] instead of [X] and [codomm_Tm_set f] instead of [Y].
+   - Add concrete examples.
+   - Use SSReflect views instead of [rwP]?
    - Set [Hint Mode]s correctly and remove unnecessary casts (and the [via] notation). *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
@@ -2917,7 +2919,24 @@ Module Alpha.
 
   where "t '^' ϕ" := (to_de_Bruijn t ϕ).
 
-  (* TODO State and prove [to_de_Bruijn_type]. *)
+  Lemma to_de_Bruijn_type :
+    forall X n ϕ t,
+      ϕ ∈ X → n ->
+      t ∈ Tm X : Prop ->
+      t^ϕ ∈ Tm^db n : Prop.
+  Proof.
+    intros.
+    gen_dep ϕ X n. induction t; intros; simpl in *.
+    - eapply IHt; eauto.
+      eapply update_ϕ_type; auto.
+    - apply (rwP andP) in H0 as [].
+      eapply IHt1 in H0; eauto.
+      eapply IHt2 in H1; eauto.
+      rewrite H0 H1 //.
+    - apply H, (rwP dommP) in H0. inverts H0. rewrite H1 /=.
+      destruct H. rewrite -> Forall_forall in H0.
+      apply H0, In_mem, (rwP codommP); eauto.
+  Qed.
 
   Definition is_pullback R ϕ ψ : Prop :=
     forall x y, R x y <-> (x ∈ domm ϕ /\ getm ϕ x = getm ψ y).
