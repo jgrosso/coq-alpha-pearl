@@ -45,7 +45,7 @@ Module Alpha.
 
   Canonical term_ordType := OrdType term [derive ordMixin for term].
 
-  Implicit Types (W X Y Z : {fset 𝒱}) (t u : term) (x y z : 𝒱) (R S : {fmap 𝒱 → 𝒱}).
+  Implicit Types (W X Y Z : {fset 𝒱}) (t u : term) (v w x y z : 𝒱) (R S : {fmap 𝒱 → 𝒱}).
 
   Fixpoint Tm X t : bool :=
     match t with
@@ -526,7 +526,7 @@ Module Alpha.
 
   Lemma α_equivalent'_supermap :
     forall (R__sub R__super : {fmap 𝒱 → 𝒱}) t u,
-      (forall (k v : 𝒱), getm R__sub k = Some v -> getm R__super k = Some v) ->
+      (forall (k : 𝒱) v, getm R__sub k = Some v -> getm R__super k = Some v) ->
       t ≡_α^R__sub u ->
       t ≡_α^R__super u.
   Proof.
@@ -551,7 +551,7 @@ Module Alpha.
   Qed.
 
   Proposition α_equivalent'_compose :
-    forall R S t u v,
+    forall R S t u (v : term),
       t ≡_α^R u ->
       u ≡_α^S v ->
       t ≡_α^(R;S) v.
@@ -576,7 +576,7 @@ Module Alpha.
   Lemma identity_supermap :
     forall (X__sub X__super : {fset 𝒱}),
       X__sub ⊆ X__super ->
-      forall k v : 𝒱, getm (1__X__sub) k = Some v -> getm (1__X__super) k = Some v.
+      forall (k : 𝒱) v, getm (1__X__sub) k = Some v -> getm (1__X__super) k = Some v.
   Proof.
     intros.
     rewrite mkfmapfE in H0. rewrite mkfmapfE.
@@ -731,7 +731,7 @@ Module Alpha.
   Qed.
 
   Corollary α_equivalent_transitive :
-    forall t u v,
+    forall t u (v : term),
       t ≡_α u ->
       u ≡_α v ->
       t ≡_α v.
@@ -1560,7 +1560,7 @@ Module Alpha.
     reflexivity.
   Qed.
 
-  Lemma lemma_7 :
+  Lemma lemma7 :
     forall X Y (f : {fmap 𝒱 → 𝒱}) t,
       f ∈ X → Y ->
       partial_bijection f ->
@@ -1998,7 +1998,7 @@ Module Alpha.
       repeat split; intros.
       - exists X.
         rewrite -converse_identity.
-        apply lemma_7 with (X := X) (Y := X) (f := 1__X); auto.
+        apply lemma7 with (X := X) (Y := X) (f := 1__X); auto.
         + apply identity_type'.
         + apply partial_bijection_identity.
       - simpl in *. rewrite /η__ /= /identity /= !mapmE mkfmapfE H1.
@@ -2567,7 +2567,7 @@ Module Alpha.
   Qed.
 
   Lemma substitution_law2 :
-    forall t u v x y,
+    forall t u (v : term) x y,
       x <> y ->
       x ∉ FV v -> (* See Exercise 2.2 in http://www.cse.chalmers.se/research/group/logic/TypesSS05/Extra/geuvers.pdf. *)
       t[x⟵u][y⟵v] ≡_α t[y⟵v][x⟵u[y⟵v]].
@@ -2755,7 +2755,7 @@ Module Alpha.
 
   (* TODO Formalize the resulting Kliesli-category. *)
 
-  Implicit Types (n i : nat) (ϕ : {fmap 𝒱 → nat}).
+  Implicit Types (n i : nat) (ϕ ψ : {fmap 𝒱 → nat}).
 
   #[global] Instance nat_HasMembers : HasMembers nat nat bool :=
     { is_member_of i n := i < n }.
@@ -2821,14 +2821,67 @@ Module Alpha.
       rewrite H4 // in H0.
   Qed.
 
-  Definition ϕ_add x : {fmap 𝒱 → nat} -> {fmap 𝒱 → nat} :=
-    mapim (fun y ϕy => if y == x then 0 else ϕy + 1).
+  Definition update_ϕ x : {fmap 𝒱 → nat} -> {fmap 𝒱 → nat} :=
+    mapim (fun y ϕ_y => if y == x then 0 else ϕ_y + 1).
 
-  #[local] Notation "ϕ '^+' x" := (ϕ_add x ϕ).
+  #[local] Notation "ϕ '^+' x" := (update_ϕ x ϕ).
+
+  Definition update_ϕ_type_new :
+    forall X n ϕ x,
+      ϕ ∈ X → n ->
+      ϕ^+x ∈ X → S n.
+  Proof.
+    intros.
+    repeat (split; intros); simpl in *.
+    - apply (rwP dommP) in H0 as [].
+      rewrite mapimE in H0.
+      destruct (getm ϕ a) eqn:?; inverts H0.
+      assert (a \in domm ϕ) by (apply (rwP dommP); eauto). apply H in H0. auto.
+    - apply (rwP dommP).
+      rewrite mapimE.
+      apply H, (rwP dommP) in H0 as [].
+      rewrite H0.
+      destruct (a =P x); subst; simpl; eauto.
+    - rewrite -> Forall_forall. intro_all.
+      destruct H. rewrite -> Forall_forall in H1.
+      apply In_mem, (rwP codommP) in H0 as [].
+      rewrite mapimE in H0.
+      destruct (getm ϕ x1) eqn:?; inverts H0.
+      assert (n0 \in codomm ϕ) by (apply (rwP codommP); eauto). apply In_mem, H1 in H0.
+      destruct (x1 =P x); subst.
+      + destruct n; auto.
+      + rewrite addn1 //.
+  Qed.
+
+  Lemma update_ϕ_injective :
+    forall ϕ x,
+      is_injective ϕ ->
+      is_injective (ϕ^+x).
+  Proof.
+    intros.
+    apply (rwP (injectivemP _)) in H.
+    apply (rwP (injectivemP (ϕ^+x))). intro_all.
+    apply (rwP dommP) in H0 as [].
+    rewrite mapimE in H0.
+    rewrite !mapimE in H1.
+    destruct (x0 =P x); subst.
+    - destruct (getm ϕ x) eqn:?; inverts H0.
+      destruct (getm ϕ x2) eqn:?; inverts H1.
+      destruct (x2 =P x); subst; auto.
+      rewrite addn1 // in H2.
+    - destruct (getm ϕ x0) eqn:?; inverts H0.
+      destruct (getm ϕ x2) eqn:?; inverts H1.
+      destruct (x2 =P x); subst.
+      + rewrite addn1 // in H2.
+      + rewrite !addn1 in H2. inverts H2.
+        rewrite -Heqo0 in Heqo.
+        apply H in Heqo; auto.
+        apply (rwP dommP). rewrite Heqo. eauto.
+  Qed.
 
   #[local] Reserved Notation "t '^' ϕ" (at level 30, ϕ at level 30).
 
-  Fixpoint to_de_Bruijn t (ϕ : {fmap 𝒱 → nat}) : de_Bruijn_term :=
+  Fixpoint to_de_Bruijn t ϕ : de_Bruijn_term :=
     match t with
     | variable x =>
       de_Bruijn_variable (getm ϕ x)
@@ -2840,5 +2893,97 @@ Module Alpha.
 
   where "t '^' ϕ" := (to_de_Bruijn t ϕ).
 
-  #[local] Notation "t '^ϕ'" := (to_de_Bruijn t) (at level 40).
+  (* TODO State and prove [to_de_Bruijn_type]. *)
+
+  Definition is_pullback R ϕ ψ : Prop :=
+    forall x y, R x y <-> getm ϕ x = getm ψ y.
+
+  Lemma lemma9' :
+    forall X Y n R ϕ ψ t u x y,
+      R ⊆ X × Y ->
+      ϕ ∈ X → n ->
+      ψ ∈ Y → n ->
+      is_injective ϕ ->
+      is_injective ψ ->
+      is_pullback R ϕ ψ ->
+      x ∈ X : Prop ->
+      y ∈ Y : Prop ->
+      is_pullback (R⦅x,y⦆) (ϕ^+x) (ψ^+y).
+  Proof.
+    simpl. intro_all.
+    rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE !mapimE /=.
+    split; intros.
+    - apply H0, (rwP dommP) in H5 as [].
+      apply H1, (rwP dommP) in H6 as [].
+      destruct (x0 =P x); subst.
+      { inverts H7. rewrite H5 H6 eq_refl //. }
+      destruct (getm R x0) eqn:?; cycle 1.
+      { inverts H7. }
+      destruct (y =P s); subst; inverts H7.
+      pose proof Heqo. apply H in Heqo as [].
+      apply H0, (rwP dommP) in H8 as [].
+      apply H1, (rwP dommP) in H9 as [].
+      apply not_eq_sym, (introF eqP) in n1.
+      apply H4 in H7. rewrite H8 H9 in H7. inverts H7.
+      rewrite H8 H9 n1 //.
+    - apply H0, (rwP dommP) in H5 as [].
+      apply H1, (rwP dommP) in H6 as [].
+      destruct (x0 =P x); subst.
+      + rewrite H5 /= in H7.
+        destruct (getm ψ y0) eqn:?; inverts H7.
+        destruct (y0 =P y); subst; auto.
+        rewrite addn1 // in H9.
+      + destruct (getm R x0) eqn:?.
+        * pose proof Heqo.
+          apply H in H8 as [].
+          apply H0, (rwP dommP) in H8 as [].
+          apply H1, (rwP dommP) in H9 as [].
+          rewrite H8 in H7.
+          destruct (getm ψ y0) eqn:?; cycle 1.
+          { inverts H7. }
+          destruct (y0 =P y); subst; inverts H7;
+          rewrite !addn1 // in H11. inverts H11.
+          assert (R x0 y0). { apply H4. rewrite H8 Heqo0 //. }
+          rewrite H7 in Heqo. inverts Heqo.
+          destruct (y =P s); subst; auto.
+          contradiction.
+        * destruct (getm ϕ x0) eqn:?;
+          destruct (getm ψ y0) eqn:?; inverts H7.
+          -- destruct (y0 =P y); subst; rewrite !addn1 // in H9. inverts H9.
+             rewrite -Heqo1 in Heqo0. apply H4 in Heqo0. rewrite Heqo0 // in Heqo.
+          -- rewrite -Heqo1 in Heqo0. apply H4 in Heqo0. rewrite Heqo0 // in Heqo.
+  Qed.
+
+  Lemma lemma9 :
+    forall X Y n R ϕ ψ t u,
+      R ⊆ X × Y ->
+      ϕ ∈ X → n ->
+      ψ ∈ Y → n ->
+      is_injective ϕ ->
+      is_injective ψ ->
+      is_pullback R ϕ ψ ->
+      t ∈ Tm X : Prop ->
+      u ∈ Tm Y : Prop ->
+      t ≡_α^R u <-> t^ϕ = u^ψ.
+  Proof.
+    intros.
+    gen_dep X Y n R ϕ ψ u. induction t; intros; split; intros.
+    - destruct u; inverts H7.
+      simpl in *. f_equal.
+      eapply IHt; eauto.
+      + apply update_ϕ_injective. auto.
+      + apply update_ϕ_injective. auto.
+      + eapply lemma9' with (X := X ∪ {s}); eauto.
+        * intros.
+          apply H in H7 as [].
+          rewrite /= in_fsetU H7. eauto.
+
+  Proposition to_de_Bruijn_chooses_canonical_representations :
+    forall t u ϕ,
+      is_injective ϕ ->
+      t ≡_α u <-> t^ϕ = u^ϕ.
+   Proof.
+     intros.
+     split; intros.
+     -
 End Alpha.
