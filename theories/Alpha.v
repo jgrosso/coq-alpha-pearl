@@ -3348,16 +3348,25 @@ Module Alpha.
       + apply in_Tm_free_variables.
   Qed.
 
-  (*
   Section foo.
     Variable x y : 𝒱.
     Hypothesis Hxy : (x == y) = false.
 
     Let t := abstraction y (variable x).
-    Let u := variable x.
+    Let u := variable y.
 
+    (* Goal t[x⟵u] ≡_α abstraction x (variable y).
+    Proof.
+      exists (fset1 y). *)
+
+    Goal PLF_substitute x u t = abstraction y (variable y).
+      rewrite /= Hxy eq_refl //.
     Goal t[x⟵u] ≡_α PLF_substitute x u t.
     Proof.
+      exists (fset1 y).
+      rewrite /= Hxy eq_refl !setmE mapmE Hxy eq_refl /= unionmE remmE rem_valmE setmE /= !eq_refl setmE.
+      destruct (y =P Fresh (codomm_Tm_set ((mapm variable (identity (fset1 x :\ y))) [x, u]))); subst; auto.
+      simpl.
    *)
 
   Lemma noop_PLF_substitute :
@@ -3419,11 +3428,128 @@ Module Alpha.
 
   Lemma substitute_is_PLF_substitute :
     forall t u x,
+      x \in FV t : Prop ->
       t[x⟵u] ≡_α PLF_substitute x u t.
   Proof.
     intros.
     gen_dep u. induction t; intros.
-    - set (g := (1__(FV t :\ s))[x,u]).
+    - rewrite /= in_fsetD in_fset1 in H. apply (rwP andP) in H as []. apply negbTE in H.
+      exists (@fset0 𝒱).
+      rewrite /= H.
+      set (f := ((mapm variable (identity (FV t :\ s))) [x, u]) [s,
+                                                                 (variable (Fresh (codomm_Tm_set ((mapm variable (identity (FV t :\ s))) [x, u]))))]).
+      assert (`⦇f⦈ (codomm_Tm_set ((1__(FV t :\ s))[x,u]) ∪ {Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u]))}) t ≡_α^(1__(codomm_Tm_set f)) ⦇f⦈ t).
+      { apply codomm_Tm_set_correct'.
+        - apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)); cycle 1.
+          { apply substitution_type. }
+          simpl. intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
+          simpl. intros.
+          apply (rwP codomm_Tm_setP) in H2 as (? & ? & ?).
+          rewrite in_fsetU in_fset1.
+          simpl in *. apply (rwP codommP) in H3 as [].
+          rewrite !setmE in H3.
+          destruct (x1 =P s); subst.
+          { inverts H3. rewrite in_fset1 in H2. rewrite H2 orbT //. }
+          apply (rwP orP). left.
+          apply (rwP codomm_Tm_setP).
+          destruct (x1 =P x); subst.
+          + inverts H3.
+            exists x0. split; auto.
+            simpl. apply (rwP codommP). exists x.
+            rewrite setmE mapmE mkfmapfE eq_refl //.
+          + apply (introF eqP) in n, n0.
+            rewrite mapmE mkfmapfE in_fsetD in_fset1 n in H3.
+            destruct (x1 \in FV t) eqn:?; inverts H3.
+            rewrite /= in_fset1 in H2. apply (rwP eqP) in H2. subst.
+            exists (variable x1). split.
+            { rewrite /= in_fset1 eq_refl //. }
+            simpl. apply (rwP codommP). exists x1.
+            rewrite setmE mapmE mkfmapfE n0 in_fsetD in_fset1 n Heqb //.
+        - rewrite !domm_set domm_map domm_mkfmapf fsvalK.
+          apply superset_in_Tm with (X__sub := FV t).
+          + simpl. intros.
+            rewrite !in_fsetU in_fsetD !in_fset1.
+            destruct (a =P s); subst; auto.
+            destruct (a =P x); subst; auto.
+          + apply in_Tm_free_variables. }
+      pose proof H0.
+      apply IHt with u in H0.
+      apply α_equivalent'_with_Tm_set with (X := FV (t[x⟵u])) in H0; cycle 1.
+      { apply in_Tm_free_variables. }
+      { apply α_equivalent_implies_same_free_variables in H0.
+        rewrite -H0.
+        apply in_Tm_free_variables. }
+      assert (FV (t[x⟵u]) = (FV t :\ x) ∪ FV u). { rewrite free_variables_after_substitute //. }
+      rewrite H3 in H0.
+      assert (codomm_Tm_set ((1__(FV t :\ s))[x, u]) = (FV t :\ s :\ x) ∪ FV u).
+      { rewrite codomm_Tm_set_update_identity //. }
+      assert (codomm_Tm_set f = (FV t :\ s :\ x) ∪ FV u ∪ {Fresh ((FV t :\ s :\ x) ∪ FV u)}).
+      { apply (elimF eqP) in H.
+        rewrite /f H4 codomm_update_substitution remm_setm_distr // !codomm_update_substitution.
+        assert (remm (remm (mapm variable (identity (FV t :\ s))) s) x = mapm variable (identity (FV t :\ s :\ x))).
+        { apply eq_fmap. intro_all.
+          repeat rewrite remmE mapmE mkfmapfE in_fsetD in_fset1.
+          destruct (x0 =P x), (x0 =P s); subst; auto. }
+        rewrite H5 codomm_Tm_set_identity //. }
+      assert (⦇f⦈ t ≡_α ⦇(1__((FV t :\ x) ∪ FV u))[s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))]⦈ (t[x⟵u])). (* ⦇(1__(FV t :\ s))[x,u]⦈ (t[s⟵variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))])). *)
+      { subst f.
+        simpl.
+        set (f := (mapm variable (identity ((FV t :\ x) ∪ FV u)))[s,variable (Fresh (codomm_Tm_set ((mapm variable (identity (FV t :\ s))) [x, u])))]).
+        set (g := (mapm variable (identity (FV t))) [x, u]).
+        replace (⦇f⦈ (⦇g⦈ t)) with ((⦇f⦈ ∘ ⦇g⦈) t : term) by auto.
+        transitivity (⦇⦇f⦈ ∘ g⦈ t).
+        { eapply lift_substitution_indistinguishable_substitutions with (X := FV t).
+          - apply substitution_type.
+          - apply substitution_type.
+          - simpl. intros.
+            rewrite !domm_set domm_map domm_mkfmapf fsvalK !in_fsetU in_fsetD !in_fset1 H6.
+            destruct (a =P s); subst; auto.
+            destruct (a =P x); subst; auto.
+          - simpl. intros.
+            rewrite domm_map domm_set domm_map domm_mkfmapf fsvalK in_fsetU H6 orbT //.
+          - apply in_Tm_free_variables.
+          - simpl. intros.
+            rewrite !setmE !mapmE setmE !mapmE !mkfmapfE in_fsetD in_fset1 H4.
+            destruct (x0 =P s); subst.
+            + apply (elimF eqP), not_eq_sym, (introF eqP) in H.
+              rewrite H H6 /= setmE mapmE mkfmapfE eq_refl H4. reflexivity.
+            + destruct (x0 =P x); subst.
+              * simpl.
+
+
+      apply variable_substitution_as_α_equivalent'.
+
+
+      assert (codomm_Tm_set ((1__(FV t :\ s))[x, u]) = (FV t :\ s :\ x) ∪ FV u).
+      { rewrite codomm_Tm_set_update_identity //. }
+      assert (codomm_Tm_set f = (FV t :\ s :\ x) ∪ FV u ∪ {Fresh ((FV t :\ s :\ x) ∪ FV u)}).
+      { apply (elimF eqP) in H.
+        rewrite /f H3 codomm_update_substitution remm_setm_distr // codomm_update_substitution.
+        assert (remm (remm (mapm variable (identity (FV t :\ s))) s) x = mapm variable (identity (FV t :\ s :\ x))).
+        { apply eq_fmap. intro_all.
+          repeat rewrite remmE mapmE mkfmapfE in_fsetD in_fset1.
+          destruct (x0 =P x), (x0 =P s); subst; auto. }
+        rewrite H4 codomm_Tm_set_identity //. }
+      rewrite H3 H4.
+      set (X := (FV t :\ s :\ x ∪ FV u)).
+
+
+
+      assert (t[x⟵u] ≡_α^(1__((FV t :\ x) ∪ FV u)) PLF_substitute x u t).
+      {
+
+
+
+      assert (⦇f⦈ t ≡_α^(1__(codomm_Tm_set f))⦅Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])),s⦆ PLF_substitute x u t).
+      {
+
+
+
+      pose proof @codomm_Tm_set_correct' (codomm_Tm_set ((mapm variable (identity (FV t :\ s))) [x, u])
+     ∪ {Fresh (codomm_Tm_set ((mapm variable (identity (FV t :\ s))) [x, u]))}) (((mapm variable (identity (FV t :\ s))) [x, u]) [s,
+     (variable (Fresh (codomm_Tm_set ((mapm variable (identity (FV t :\ s))) [x, u]))))]).
+
+      set (g := (1__(FV t :\ s))[x,u]).
       set (z := Fresh (codomm_Tm_set g)).
       set (f := g[s,variable z]).
       eassert (domm f = _). { rewrite !domm_set domm_map domm_mkfmapf fsvalK //. }
