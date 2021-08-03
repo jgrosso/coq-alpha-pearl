@@ -1,7 +1,7 @@
 From AlphaPearl Require Import Util.Tactics.
 From Coq Require Import Bool List ssreflect.
 Import ListNotations.
-From mathcomp Require Import eqtype seq ssrbool ssrnat.
+From mathcomp Require Import bigop eqtype seq ssrbool ssrnat.
 From extructures Require Import fmap fset ord.
 
 Set Asymmetric Patterns.
@@ -25,7 +25,11 @@ Notation "x '∩' y" := (x :&: y) (at level 48) : fset_scope.
 
 Notation "⋃_( x ∈ s ) y" :=
   (\bigcup_(x <- s) y)
-    (at level 41, x at level 50, s at level 50, y at level 200) : fset_scope.
+    (at level 41, x, s at level 50, y at level 200) : fset_scope.
+
+Notation "∑_( x ∈ s ) y" :=
+  (\sum_(x <- s) y)
+    (at level 41, x, s at level 50, y at level 200) : fset_scope.
 
 (** This conflicts with [Membership.⊆], but it's convenient in this file to have it [fset]-specific. *)
 #[local] Infix "⊆" := fsubset (at level 40) : fset_scope.

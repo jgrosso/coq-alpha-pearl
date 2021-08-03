@@ -19,7 +19,7 @@
    - Give [⊆] a corresponding [Definition]. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
-From mathcomp Require Import choice eqtype seq ssrbool ssrfun ssrnat.
+From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
 From deriving Require Import deriving.
 From extructures Require Import fmap fset ord.
 From AlphaPearl Require Import Util.
@@ -3077,7 +3077,7 @@ Module Alpha.
       apply H. auto.
   Qed.
 
-  Proposition to_de_Bruijn_chooses_canonical_representations :
+  Proposition to_de_Bruijn_chooses_canonical_representations' :
     forall X n t u ϕ,
       ϕ ∈ X → n ->
       is_injective ϕ ->
@@ -3096,6 +3096,30 @@ Module Alpha.
       + exists. apply H3.
       + apply identity_type.
       + eapply identity_is_pullback; eauto.
+  Qed.
+
+  Definition S_maximum_is_upper_bound_on_ϕ_codomain :
+    forall ϕ,
+      codomm ϕ ⊆ S (maximum (codomm ϕ)).
+  Proof.
+    intros.
+    apply maximum_correct. auto.
+  Qed.
+
+  Proposition to_de_Bruijn_chooses_canonical_representations :
+    forall t u ϕ,
+      is_injective ϕ ->
+      FV t ⊆ domm ϕ ->
+      FV u ⊆ domm ϕ ->
+      t ≡_α u <-> t^ϕ = u^ϕ.
+  Proof.
+    intros.
+    eapply to_de_Bruijn_chooses_canonical_representations' with (X := domm ϕ) (n := S (maximum (codomm ϕ))); auto.
+    - repeat (split; intros); auto.
+      rewrite Forall_forall. simpl. intros.
+      apply S_maximum_is_upper_bound_on_ϕ_codomain, In_mem. auto.
+    - apply in_Tm_iff_superset_free_variables. auto.
+    - apply in_Tm_iff_superset_free_variables. auto.
   Qed.
 
   (* TODO "Show that -^ϕ preserves substitution, i.e. it maps substitutions on named terms as given here to substitution on de Bruijn terms, e.g. as defined in (Altenkirch & Reus, 1999). *)
@@ -3238,21 +3262,6 @@ Module Alpha.
     - destruct (n =P j); subst; auto.
   Qed.
 
-  Section PLF_substitute.
-    Variables (x : 𝒱) (s : term).
-
-    Fixpoint PLF_substitute t : term :=
-      let substitute_or_shadow x' t := if x == x' then t else PLF_substitute t in
-      match t with
-      | abstraction x' t =>
-        abstraction x' (substitute_or_shadow x' t)
-      | application t1 t2 =>
-        application (PLF_substitute t1) (PLF_substitute t2)
-      | variable x' =>
-        if x == x' then s else t
-      end.
-  End PLF_substitute.
-
   Lemma codomm_Tm_set_identity :
     forall X,
       codomm_Tm_set (1__X) = X.
@@ -3348,72 +3357,286 @@ Module Alpha.
       + apply in_Tm_free_variables.
   Qed.
 
-  Section foo.
-    Variable x y : 𝒱.
-    Hypothesis Hxy : (x == y) = false.
-
-    Let t := abstraction y (variable x).
-    Let u := variable y.
-
-    (* Goal t[x⟵u] ≡_α abstraction x (variable y).
-    Proof.
-      exists (fset1 y). *)
-
-    Goal PLF_substitute x u t = abstraction y (variable y).
-      rewrite /= Hxy eq_refl //.
-    Goal t[x⟵u] ≡_α PLF_substitute x u t.
-    Proof.
-      exists (fset1 y).
-      rewrite /= Hxy eq_refl !setmE mapmE Hxy eq_refl /= unionmE remmE rem_valmE setmE /= !eq_refl setmE.
-      destruct (y =P Fresh (codomm_Tm_set ((mapm variable (identity (fset1 x :\ y))) [x, u]))); subst; auto.
-      simpl.
-   *)
-
-  Lemma noop_PLF_substitute :
-    forall t u x,
-      x ∉ FV t ->
-      PLF_substitute x u t ≡_α t.
+  (*
+  Lemma foo :
+    forall ϕ t x y,
+      (t[x⟵variable y])^ϕ^+y = t^ϕ^+x.
   Proof.
     intros.
     induction t; simpl in *.
-    - rewrite in_fsetD in_fset1 negb_and negbK in H. apply (rwP orP) in H as [].
-      + apply (rwP eqP) in H. subst.
-        rewrite eq_refl. reflexivity.
-      + apply IHt in H.
-        destruct (x =P s); subst.
-        { reflexivity. }
-        exists (FV t). rewrite /= update_identity. apply α_equivalent'_with_Tm_set; auto;
-        apply superset_in_Tm with (X__sub := FV t); simpl; intros;
-        try rewrite in_fsetU H0 //.
-        * apply α_equivalent_implies_same_free_variables in H.
-          rewrite H.
-          apply in_Tm_free_variables.
-        * apply in_Tm_free_variables.
-    - rewrite in_fsetU negb_or in H. apply (rwP andP) in H as [].
-      apply IHt1 in H.
-      apply IHt2 in H0.
-      exists (FV t1 ∪ FV t2).
-      simpl. rewrite <- (rwP andP). split.
-      + apply α_equivalent'_supermap with (R__sub := 1__(FV t1)).
-        * simpl. intros. rewrite mkfmapfE in H1. rewrite mkfmapfE in_fsetU.
-          destruct (k \in FV t1) eqn:?; rewrite Heqb // in H1.
-        * apply α_equivalent'_with_Tm_set; auto.
-          -- apply α_equivalent_implies_same_free_variables in H.
-             rewrite H.
-             apply in_Tm_free_variables.
-          -- apply in_Tm_free_variables.
-      + apply α_equivalent'_supermap with (R__sub := 1__(FV t2)).
-        * simpl. intros. rewrite mkfmapfE in H1. rewrite mkfmapfE in_fsetU.
-          destruct (k \in FV t2) eqn:?; rewrite Heqb // in H1.
-          rewrite orbT //.
-        * apply α_equivalent'_with_Tm_set; auto.
-          -- apply α_equivalent_implies_same_free_variables in H0.
-             rewrite H0.
-             apply in_Tm_free_variables.
-          -- apply in_Tm_free_variables.
-    - rewrite in_fset1 in H.
-      apply negbTE in H. rewrite H. reflexivity.
-  Qed.
+    - f_equal.
+      transitivity ((⦇(1__(FV t :\ s))[x,variable y][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,variable y])))]⦈ t)^ϕ^+(Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,variable y])))).
+      { assert
+          (FV (`⦇(1__(FV t :\ s))[x,variable y][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,variable y])))]⦈
+                (codomm_Tm_set ((1__(FV t :\ s))[x,variable y]) ∪ {Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,variable y]))}) t) =
+           FV (⦇(1__(FV t :\ s))[x,variable y][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,variable y])))]⦈ t)).
+        { apply α_equivalent_implies_same_free_variables.
+          symmetry. apply codomm_Tm_set_correct with (X := (FV t :\ s) ∪ {x} ∪ {s}); cycle 1.
+          { apply superset_in_Tm with (X__sub := FV t).
+            - simpl. intros. rewrite !in_fsetU in_fsetD !in_fset1 H.
+              destruct (a =P s); subst; auto.
+              destruct (s =P x); auto.
+            - apply in_Tm_free_variables. }
+          apply update_substitution_type; cycle 1.
+          { rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
+          apply update_substitution_type.
+          - apply enlarge_codomain with (P__sub := Tm (FV t :\ s)); cycle 1.
+            { apply η_type. }
+            simpl. intros. apply in_Tm_iff_superset_free_variables. simpl. intros.
+            rewrite in_fsetU in_fset1.
+            rewrite codomm_Tm_set_update_identity in_fsetU !in_fsetD !in_fset1.
+            destruct (@in_Tm_iff_superset_free_variables (FV t :\ s) a).
+            apply H2 with a0 in H; auto.
+            rewrite /= in_fsetD in_fset1 in H. apply (rwP andP) in H as [].
+            rewrite H H3 !andbT.
+            destruct (a0 =P x); subst; auto.
+            destruct (x =P y); subst; auto.
+            simpl.
+            pose proof Fresh_correct (FV t :\ s :\ x ∪ {y}).
+            + rewrite H1 // in H2.
+            + rewrite H6 // in H1.
+          - apply superset_in_Tm with (X__sub := FV u); cycle 1.
+            { apply in_Tm_free_variables. }
+            simpl. intros.
+            rewrite codomm_Tm_set_update_identity !in_fsetU !in_fsetD !in_fset1 H2 orbT //. }
+        assert
+        (forall a : 𝒱,
+            a ∈ FV
+              (`⦇(1__(FV t :\ s))[x,u][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))]⦈
+                (codomm_Tm_set ((1__(FV t :\ s))[x,u]) ∪ {Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u]))})
+                t) : Prop ->
+            a ∈ domm (ϕ^+(Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))) : Prop).
+        { simpl. intros.
+          apply free_variables_lift_substitution_subset' with (X := (FV t :\ s) ∪ {x} ∪ {s}) in H3.
+          - rewrite domm_set domm_mapi in_fsetU in_fset1.
+            rewrite /= in_fsetU in_fset1 in H3. apply (rwP orP) in H3 as []; cycle 1.
+            { rewrite H3 //. }
+            apply (rwP codomm_Tm_setP) in H3 as (? & ? & ?).
+            simpl in *. apply (rwP codommP) in H4 as [].
+            rewrite setmE mapmE mkfmapfE in_fsetD in_fset1 in H4.
+            apply (rwP orP). right. apply H. rewrite in_fsetU in_fsetD in_fset1.
+            destruct (x1 =P x); subst.
+            { inverts H4. rewrite H3 orbT //. }
+            destruct (x1 =P s); subst.
+            { inverts H4. }
+            destruct (x1 \in FV t) eqn:?; inverts H4.
+            rewrite in_fset1 in H3. apply (rwP eqP) in H3. subst.
+            apply (introF eqP) in n1.
+            rewrite n1 Heqb //.
+          - apply update_substitution_type.
+            + apply update_substitution_type.
+              * apply enlarge_codomain with (P__sub := Tm (FV t :\ s)); cycle 1.
+                { apply η_type. }
+                simpl. intros. apply superset_in_Tm with (X__sub := FV t :\ s); auto.
+                simpl. intros.
+                rewrite in_fsetD in_fset1 in H5. apply (rwP andP) in H5 as [].
+                rewrite in_fsetU in_fset1.
+                apply (rwP orP). left.
+                apply (rwP codomm_Tm_setP). exists (variable a1). simpl. split.
+                { rewrite in_fset1 eq_refl //. }
+                apply (rwP codommP). exists a1.
+                rewrite setmE mapmE mkfmapfE in_fsetD in_fset1 H5 H6 /=.
+                destruct (a1 =P x); subst; auto.
+                apply (rwP orP) in H1 as [].
+                -- rewrite H1 // in H5.
+                -- rewrite H6 // in H1.
+              * apply superset_in_Tm with (X__sub := FV u); cycle 1.
+                { apply in_Tm_free_variables. }
+                simpl. intros.
+                rewrite in_fsetU. apply (rwP orP). left.
+                apply (rwP codomm_Tm_setP). exists u. split; auto.
+                simpl. apply (rwP codommP). exists x.
+                rewrite setmE mapmE mkfmapfE eq_refl //.
+            + eapply superset_in_Tm; cycle 1.
+              { apply in_Tm_free_variables. }
+              simpl. intros.
+              rewrite in_fsetU H4 orbT //.
+          - eapply superset_in_Tm; cycle 1.
+            { apply in_Tm_free_variables. }
+            simpl. intros.
+            rewrite !in_fsetU in_fsetD !in_fset1 H4.
+            destruct (a0 =P s); subst; auto. rewrite orbT //. }
+        apply to_de_Bruijn_chooses_canonical_representations.
+        - apply injective_update_ϕ. auto.
+        - apply H3.
+        - rewrite -H2. apply H3.
+        - apply codomm_Tm_set_correct with (X := (FV t :\ s) ∪ {x} ∪ {s}); cycle 1.
+          { apply superset_in_Tm with (X__sub := FV t).
+            - simpl. intros. rewrite !in_fsetU in_fsetD !in_fset1 H4 andbT.
+              destruct (a =P s); subst; auto. rewrite orbT //.
+            - apply in_Tm_free_variables. }
+          apply update_substitution_type; cycle 1.
+          { rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
+          apply update_substitution_type.
+          + apply enlarge_codomain with (P__sub := Tm (FV t :\ s)); cycle 1.
+            { apply η_type. }
+            simpl. intros.
+            apply superset_in_Tm with (X__sub := FV t :\ s); auto.
+            simpl. intros.
+            rewrite in_fsetD in_fset1 in H5. apply (rwP andP) in H5 as [].
+            rewrite in_fsetU in_fset1.
+            apply (rwP orP). left.
+            apply (rwP codomm_Tm_setP). exists (variable a0). split.
+            { rewrite /= in_fset1 eq_refl //. }
+            simpl. apply (rwP codommP). exists a0.
+            rewrite setmE mapmE mkfmapfE in_fsetD in_fset1 H5 H6.
+            apply (rwP orP) in H1 as [].
+            * apply (rwP eqP) in H1. subst.
+              apply negbTE in H5.
+              rewrite H5 //.
+            * destruct (a0 =P x); subst; auto. rewrite H6 // in H1.
+          + apply superset_in_Tm with (X__sub := FV u); cycle 1.
+            { apply in_Tm_free_variables. }
+            simpl. intros.
+            rewrite in_fsetU.
+            apply (rwP orP). left.
+            apply (rwP codomm_Tm_setP). exists u. split; auto.
+            simpl. apply (rwP codommP). exists x.
+            rewrite setmE mapmE mkfmapfE eq_refl //. }
+  Lemma noop_de_Bruijn_substitute :
+    forall n ϕ t u x,
+      ϕ ∈ FV t ∪ FV u → n ->
+      is_injective ϕ ->
+      x ∉ FV t ->
+      (t[x⟵u])^ϕ = t^ϕ.
+  Proof.
+    intros.
+    gen_dep n ϕ u x. induction t; intros; simpl in *.
+    - f_equal.
+      rewrite in_fsetD in_fset1 negb_and negbK in H1.
+      transitivity ((⦇(1__(FV t :\ s))[x,u][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))]⦈ t)^ϕ^+(Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))).
+      { assert
+          (FV (`⦇(1__(FV t :\ s))[x,u][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))]⦈
+                (codomm_Tm_set ((1__(FV t :\ s))[x,u]) ∪ {Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u]))}) t) =
+           FV (⦇(1__(FV t :\ s))[x,u][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))]⦈ t)).
+        { apply α_equivalent_implies_same_free_variables.
+          symmetry. apply codomm_Tm_set_correct with (X := (FV t :\ s) ∪ {x} ∪ {s}); cycle 1.
+          { apply superset_in_Tm with (X__sub := FV t).
+            - simpl. intros. rewrite !in_fsetU in_fsetD !in_fset1 H2.
+              destruct (a =P s); subst; auto.
+              destruct (s =P x); auto.
+            - apply in_Tm_free_variables. }
+          apply update_substitution_type; cycle 1.
+          { rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
+          apply update_substitution_type.
+          - apply enlarge_codomain with (P__sub := Tm (FV t :\ s)); cycle 1.
+            { apply η_type. }
+            simpl. intros. apply in_Tm_iff_superset_free_variables. simpl. intros.
+            rewrite in_fsetU in_fset1.
+            rewrite codomm_Tm_set_update_identity in_fsetU !in_fsetD !in_fset1.
+            destruct (@in_Tm_iff_superset_free_variables (FV t :\ s) a).
+            apply H5 with a0 in H2; auto.
+            rewrite /= in_fsetD in_fset1 in H2. apply (rwP andP) in H2 as [].
+            rewrite H2 H6 !andbT.
+            destruct (a0 =P x); subst; auto.
+            apply (rwP orP) in H1 as [].
+            + rewrite H1 // in H2.
+            + rewrite H6 // in H1.
+          - apply superset_in_Tm with (X__sub := FV u); cycle 1.
+            { apply in_Tm_free_variables. }
+            simpl. intros.
+            rewrite codomm_Tm_set_update_identity !in_fsetU !in_fsetD !in_fset1 H2 orbT //. }
+        assert
+        (forall a : 𝒱,
+            a ∈ FV
+              (`⦇(1__(FV t :\ s))[x,u][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))]⦈
+                (codomm_Tm_set ((1__(FV t :\ s))[x,u]) ∪ {Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u]))})
+                t) : Prop ->
+            a ∈ domm (ϕ^+(Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))) : Prop).
+        { simpl. intros.
+          apply free_variables_lift_substitution_subset' with (X := (FV t :\ s) ∪ {x} ∪ {s}) in H3.
+          - rewrite domm_set domm_mapi in_fsetU in_fset1.
+            rewrite /= in_fsetU in_fset1 in H3. apply (rwP orP) in H3 as []; cycle 1.
+            { rewrite H3 //. }
+            apply (rwP codomm_Tm_setP) in H3 as (? & ? & ?).
+            simpl in *. apply (rwP codommP) in H4 as [].
+            rewrite setmE mapmE mkfmapfE in_fsetD in_fset1 in H4.
+            apply (rwP orP). right. apply H. rewrite in_fsetU in_fsetD in_fset1.
+            destruct (x1 =P x); subst.
+            { inverts H4. rewrite H3 orbT //. }
+            destruct (x1 =P s); subst.
+            { inverts H4. }
+            destruct (x1 \in FV t) eqn:?; inverts H4.
+            rewrite in_fset1 in H3. apply (rwP eqP) in H3. subst.
+            apply (introF eqP) in n1.
+            rewrite n1 Heqb //.
+          - apply update_substitution_type.
+            + apply update_substitution_type.
+              * apply enlarge_codomain with (P__sub := Tm (FV t :\ s)); cycle 1.
+                { apply η_type. }
+                simpl. intros. apply superset_in_Tm with (X__sub := FV t :\ s); auto.
+                simpl. intros.
+                rewrite in_fsetD in_fset1 in H5. apply (rwP andP) in H5 as [].
+                rewrite in_fsetU in_fset1.
+                apply (rwP orP). left.
+                apply (rwP codomm_Tm_setP). exists (variable a1). simpl. split.
+                { rewrite in_fset1 eq_refl //. }
+                apply (rwP codommP). exists a1.
+                rewrite setmE mapmE mkfmapfE in_fsetD in_fset1 H5 H6 /=.
+                destruct (a1 =P x); subst; auto.
+                apply (rwP orP) in H1 as [].
+                -- rewrite H1 // in H5.
+                -- rewrite H6 // in H1.
+              * apply superset_in_Tm with (X__sub := FV u); cycle 1.
+                { apply in_Tm_free_variables. }
+                simpl. intros.
+                rewrite in_fsetU. apply (rwP orP). left.
+                apply (rwP codomm_Tm_setP). exists u. split; auto.
+                simpl. apply (rwP codommP). exists x.
+                rewrite setmE mapmE mkfmapfE eq_refl //.
+            + eapply superset_in_Tm; cycle 1.
+              { apply in_Tm_free_variables. }
+              simpl. intros.
+              rewrite in_fsetU H4 orbT //.
+          - eapply superset_in_Tm; cycle 1.
+            { apply in_Tm_free_variables. }
+            simpl. intros.
+            rewrite !in_fsetU in_fsetD !in_fset1 H4.
+            destruct (a0 =P s); subst; auto. rewrite orbT //. }
+        apply to_de_Bruijn_chooses_canonical_representations.
+        - apply injective_update_ϕ. auto.
+        - apply H3.
+        - rewrite -H2. apply H3.
+        - apply codomm_Tm_set_correct with (X := (FV t :\ s) ∪ {x} ∪ {s}); cycle 1.
+          { apply superset_in_Tm with (X__sub := FV t).
+            - simpl. intros. rewrite !in_fsetU in_fsetD !in_fset1 H4 andbT.
+              destruct (a =P s); subst; auto. rewrite orbT //.
+            - apply in_Tm_free_variables. }
+          apply update_substitution_type; cycle 1.
+          { rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
+          apply update_substitution_type.
+          + apply enlarge_codomain with (P__sub := Tm (FV t :\ s)); cycle 1.
+            { apply η_type. }
+            simpl. intros.
+            apply superset_in_Tm with (X__sub := FV t :\ s); auto.
+            simpl. intros.
+            rewrite in_fsetD in_fset1 in H5. apply (rwP andP) in H5 as [].
+            rewrite in_fsetU in_fset1.
+            apply (rwP orP). left.
+            apply (rwP codomm_Tm_setP). exists (variable a0). split.
+            { rewrite /= in_fset1 eq_refl //. }
+            simpl. apply (rwP codommP). exists a0.
+            rewrite setmE mapmE mkfmapfE in_fsetD in_fset1 H5 H6.
+            apply (rwP orP) in H1 as [].
+            * apply (rwP eqP) in H1. subst.
+              apply negbTE in H5.
+              rewrite H5 //.
+            * destruct (a0 =P x); subst; auto. rewrite H6 // in H1.
+          + apply superset_in_Tm with (X__sub := FV u); cycle 1.
+            { apply in_Tm_free_variables. }
+            simpl. intros.
+            rewrite in_fsetU.
+            apply (rwP orP). left.
+            apply (rwP codomm_Tm_setP). exists u. split; auto.
+            simpl. apply (rwP codommP). exists x.
+            rewrite setmE mapmE mkfmapfE eq_refl //. }
+       apply (rwP orP) in H1 as [].
+      + apply (rwP eqP) in H1. subst.
+        assert ((1__(FV t :\ s))[s,u][s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[s,u])))] = (1__(FV t))[s,variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[s,u])))]).
+        { apply eq_fmap. intro_all.
+          rewrite !setmE !mapmE !mkfmapfE in_fsetD in_fset1.
+          destruct (x =P s); subst; auto. }
+        rewrite H1. clear H1.
 
   Lemma substitute_is_PLF_substitute_when_noop :
     forall t u x,
@@ -3732,6 +3955,7 @@ Module Alpha.
             - rewrite H4 in H5.
 
           pose proof @substitution_law2 t u (variable (Fresh (codomm_Tm_set ((mapm variable (identity (FV t :\ s))) [x, u])))) x s n.
+   *)
 
   Lemma TAPL_6_2_8 :
     forall n ϕ t u x,
@@ -3768,49 +3992,40 @@ Module Alpha.
         apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)).
         - simpl. intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
         - apply substitution_type. }
+      assert (FV (`⦇f⦈ (codomm_Tm_set g ∪ {z}) t) ⊆ domm (ϕ^+z)).
+      { simpl. intros.
+        apply (rwP dommP).
+        rewrite setmE mapimE.
+        destruct (a =P z); eauto.
+        eapply free_variables_lift_substitution_subset' in H5; cycle 1.
+        { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)).
+          - simpl. intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
+          - apply substitution_type. }
+        { apply H2. }
+        rewrite /= in_fsetU in_fset1 in H5. apply (rwP orP) in H5 as []; cycle 1.
+        { apply (rwP eqP) in H5. subst. contradiction. }
+        apply (rwP codomm_Tm_setP) in H5 as (? & ? & ?).
+        simpl in *. apply (rwP codommP) in H6 as [].
+        rewrite setmE mapmE mkfmapfE in H6.
+        destruct (x1 =P x); subst.
+        { inverts H6.
+          assert (a \in (FV t :\ s) ∪ FV x0 ∪ {x}). { rewrite !in_fsetU H5 orbT //. }
+          apply H, (rwP dommP) in H6 as [].
+          rewrite H6 /=. eauto. }
+        rewrite in_fsetD in_fset1 in H6.
+        destruct (x1 =P s); subst.
+        { inverts H6. }
+        destruct (x1 \in FV t) eqn:?; inverts H6.
+        rewrite in_fset1 in H5. apply (rwP eqP) in H5. subst.
+        apply (introF eqP) in n2.
+        assert (x1 \in (FV t :\ s) ∪ FV u ∪ {x}). { rewrite !in_fsetU in_fsetD in_fset1 Heqb n2 //. }
+        apply H, (rwP dommP) in H5 as [].
+        rewrite H5 /=. eauto. }
+      assert (FV (⦇f⦈ t) ⊆ domm (ϕ^+z)).
+      { simpl. intros.
+        apply α_equivalent_implies_same_free_variables in H4. rewrite H4 in H6.
+        apply H5 in H6. auto. }
       transitivity ((⦇f⦈ t)^ϕ^+z).
       { eapply to_de_Bruijn_chooses_canonical_representations; eauto.
-        - apply update_ϕ_type. apply H.
-        - apply injective_update_ϕ. auto.
-        - apply superset_in_Tm with (X__sub := codomm_Tm_set g ∪ {z}).
-          + simpl. intros.
-            rewrite !in_fsetU in_fsetD !in_fset1.
-            rewrite in_fsetU in_fset1 in H5. apply (rwP orP) in H5 as [].
-            * apply (rwP codomm_Tm_setP) in H5 as (? & ? & ?).
-              simpl in *. apply (rwP codommP) in H6 as [].
-              rewrite setmE mapmE mkfmapfE in H6.
-              destruct (x1 =P x); subst.
-              { inverts H6. rewrite H5 orbT //. }
-              rewrite in_fsetD in_fset1 in H6.
-              destruct (x1 =P s); subst.
-              { inverts H6. }
-              destruct (x1 \in FV t) eqn:?; inverts H6.
-              rewrite in_fset1 in H5. apply (rwP eqP) in H5. subst.
-              apply (introF eqP) in n1.
-              rewrite Heqb n1 //.
-            * rewrite H5 orbT //.
-          + apply lift_substitution_type' with (X := domm f); auto.
-            apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)).
-            * simpl. intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
-            * apply substitution_type.
-        - apply superset_in_Tm with (X__sub := codomm_Tm_set f).
-          + simpl. intros.
-            rewrite !in_fsetU in_fsetD !in_fset1.
-            apply (rwP codomm_Tm_setP) in H5 as (? & ? & ?).
-            simpl in *. apply (rwP codommP) in H6 as [].
-            rewrite !setmE mapmE mkfmapfE in H6.
-            destruct (x1 =P s); subst.
-            { inverts H6. rewrite in_fset1 in H5. rewrite H5 !orbT //. }
-            destruct (x1 =P x); subst.
-            { inverts H6. rewrite H5 orbT //. }
-            rewrite in_fsetD in_fset1 in H6.
-            destruct (x1 =P s); subst.
-            { inverts H6. }
-            destruct (x1 \in FV t) eqn:?; inverts H6.
-            rewrite in_fset1 in H5. apply (rwP eqP) in H5. subst.
-            apply (introF eqP) in n2.
-            rewrite Heqb n2 //.
-          + apply lift_substitution_type' with (X := domm f); auto.
-            apply substitution_type. }
-      destruct (s =P x); subst.
+        apply injective_update_ϕ. auto. }
 End Alpha.
