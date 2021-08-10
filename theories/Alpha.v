@@ -3751,19 +3751,6 @@ Module Alpha.
     apply (rwP eqP) in H. rewrite /y H // in n.
   Qed.
 
-  (*
-  Lemma foo :
-    forall ϕ x t u,
-      [odflt 0 (getm ϕ x) ↦ u^ϕ]((abstraction x t)^ϕ) = (abstraction x t)^ϕ.
-  Proof.
-    intros.
-    simpl. f_equal.
-    gen_dep ϕ x u. induction t; intros.
-    - simpl. f_equal.
-      destruct (s =P x); subst.
-      +
-   *)
-
   Lemma old_index_after_update_ϕ :
     forall ϕ x i,
       is_injective ϕ ->
@@ -3916,6 +3903,57 @@ Module Alpha.
         rewrite H1 eq_refl //.
   Qed.
 
+  Lemma noop_de_Bruijn_substitution' :
+    forall ϕ i x t dBu,
+      is_injective ϕ ->
+      FV t ⊆ domm ϕ ->
+      getm ϕ x = Some i ->
+      x ∉ FV t ->
+      let dBt := t^ϕ in
+      [i↦dBu]dBt = dBt.
+  Proof.
+    intros.
+    subst dBt.
+    gen_dep ϕ x i dBu. induction t; intros;
+    simpl in *.
+    - f_equal.
+      rewrite in_fsetD in_fset1 negb_and negbK in H2.
+      destruct (x =P s); subst.
+      + pose proof old_index_after_update_ϕ _ H H1.
+        apply noop_de_Bruijn_substitution.
+        * simpl. intros.
+          rewrite domm_set domm_mapi in_fsetU in_fset1.
+          destruct (a =P s); subst; auto.
+          apply (introF eqP) in n.
+          apply H0. rewrite in_fsetD in_fset1 n H4 //.
+        * rewrite <- (rwP (@codommPn _ _ (ϕ^+s) _)). intros.
+          apply negbT, Bool.not_true_iff_false. intro_all.
+          apply (rwP eqP) in H4.
+          apply H3 with k'. rewrite -addn1 //.
+      + pose proof old_index_after_update_ϕ _ H H1.
+        erewrite IHt; eauto.
+        * apply injective_update_ϕ. auto.
+        * intros.
+          rewrite domm_set domm_mapi in_fsetU in_fset1.
+          destruct (a =P s); subst; auto.
+          apply (introF eqP) in n0.
+          apply H0. rewrite in_fsetD in_fset1 n0 H4 //.
+        * apply (introF eqP) in n.
+          rewrite setmE mapimE n H1 /= addn1 //.
+    - rewrite in_fsetU negb_or in H2. apply (rwP andP) in H2 as [].
+      erewrite IHt1; cycle 1; eauto.
+      { intros. apply H0. rewrite in_fsetU H4 //. }
+      erewrite IHt2; cycle 1; eauto.
+      intros. apply H0. rewrite in_fsetU H4 orbT //.
+    - assert (s \in domm ϕ). { apply H0. rewrite in_fset1 eq_refl //. }
+      apply (rwP dommP) in H3 as []. rewrite H3 /=.
+      destruct (x0 =P i); subst; auto.
+      rewrite -H3 in H1.
+      apply (rwP (injectivemP _)) in H. apply H in H1.
+      + subst. rewrite in_fset1 eq_refl // in H2.
+      + apply (rwP dommP). rewrite H1. eauto.
+  Qed.
+
   Lemma TAPL_6_2_8 :
     forall X n ϕ t u x,
       ϕ ∈ X ∪ {x} → n ->
@@ -3978,7 +4016,8 @@ Module Alpha.
             symmetry. apply noop_substitution. rewrite /= in_fsetD in_fset1 n0 Heqb //.
           - apply noop_substitution. rewrite /= in_fsetD in_fset1 n0 Heqb //. }
         simpl in *. f_equal.
-        rewrite noop_de_Bruijn_substitution; auto.
+        rewrite (noop_de_Bruijn_substitution' x); cycle 1; auto.
+        - apply injective_update_ϕ. auto.
         - simpl. intros.
           rewrite domm_set domm_mapi in_fsetU in_fset1.
           destruct (a =P s); subst; auto.
@@ -3988,7 +4027,29 @@ Module Alpha.
           rewrite orbF.
           apply (introF eqP) in n1, n2.
           apply H0. rewrite !in_fsetU in_fsetD !in_fset1 H2 n1 n2 //.
-        -
+        - apply (introF eqP) in n0.
+          rewrite setmE mapimE n0.
+          assert (x \in X ∪ {x}). { rewrite in_fsetU in_fset1 eq_refl orbT //. }
+          apply H, (rwP dommP) in H2 as [].
+          rewrite H2 //.
+        - rewrite Heqb //. }
+      apply (introF eqP) in n0.
+      simpl in *. f_equal.
+      set (f := (mapm variable (identity (FV t :\ s)))[x,u]).
+      set (z := Fresh (codomm_Tm_set f)).
+      set (g := f[s,variable z]).
+      assert (codomm_Tm_set f = (FV t :\ s :\ x) ∪ FV u). { apply codomm_Tm_set_update_identity. }
+      assert (codomm_Tm_set g = codomm_Tm_set f ∪ {z}).
+      { rewrite codomm_update_substitution.
+        replace (remm f s) with f; auto.
+        apply eq_fmap. intro_all.
+        rewrite remmE !setmE !mapmE !mkfmapfE !in_fsetD !in_fset1.
+        destruct (x0 =P x); subst.
+        { rewrite n0 //. }
+        destruct (x0 =P s); subst; auto. }
+      rewrite -H3.
+      subst g f.
+      simpl.
 
 
         apply (introF eqP) in n0.
