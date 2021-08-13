@@ -1,4 +1,4 @@
-(* TODO Does [t ≡_α u] mean that [exists X, t ≡_α^(1__X) u] or [t ≡_α^(1__(FV t)) u]? Is the latter btter for computational purposes, since the two are logically equivalent? *)
+(* TODO Does [t ≡_α u] mean that [exists X, t ≡_α^(1__X) u] or [t ≡_α^(1__(FV t)) u]? Is the latter better for computational purposes, since the two are logically equivalent? *)
 (* TODO
    - Name hypotheses.
    - Use [Hint Extern]s or [Lemma]s to clean up proofs.
