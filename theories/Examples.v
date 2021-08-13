@@ -16,7 +16,7 @@ Import Alpha.
 
 Import AlphaStringFacts.
 
-(** Notation inspired by _PLFA_ (https://plfa.github.io/Lambda) *)
+(** Notation inspired by _PLFA_ (https://plfa.github.io/Lambda). *)
 #[local] Notation "'`' x" := (variable x) (at level 0).
 
 #[local] Notation "'λ' x y" := (abstraction x y) (at level 200, x at level 0).
@@ -33,13 +33,9 @@ Example examples :
   (λ"x" λ"y" `"y"⋅`"x") ≢_α (λ"x" λ"y" `"x"⋅`"y") /\
   (λ"x" λ"x" `"x") ≡_α (λ"y" λ"x" `"x").
 Proof.
+  unfold α_equivalent.
   repeat split; intros_all;
   try apply α_equivalent_iff_α_equivalent'_free_variables;
-  try (inverts H; auto);
-  try rewrite /= mkfmapfE in H0;
-  repeat rewrite /= unionmE remmE rem_valmE //= in H0;
-  repeat rewrite /= unionmE remmE rem_valmE //=.
-  - destruct ("x" \in x) eqn:?; rewrite Heqb // in H0.
-  - rewrite mkfmapfE !in_fsetD !in_fsetU //.
-  - destruct ("y" \in x) eqn:?; rewrite mkfmapfE Heqb // in H0.
+  repeat rewrite /= unionmE remmE rem_valmE //=;
+  rewrite mkfmapfE !in_fsetD !in_fsetU //.
 Qed.
