@@ -1,24 +1,25 @@
-(* TODO Does [t ≡_α u] mean that [exists X, t ≡_α^(1__X) u] or [t ≡_α^(1__(FV t)) u]? Is the latter better for computational purposes, since the two are logically equivalent? *)
-(* TODO
-   - Name hypotheses.
-   - Use [Hint Extern]s or [Lemma]s to clean up proofs.
-   - Clean up ordering of definitions/lemmas/parameters/notations/etc.
-   - Remove [bool]/[Prop] output distinctions?
-     - Alternately, why is [\in] sometimes required for bool predicates instead of [∈]?
-   - Implement [𝒱] and [Alpha] concretely (with both [string] and [nat]?).
-   - Remove dead code.
-   - Add documentation for [`≡_α] notations, and define them globally instead of redefining them.
-   - Improve names of lemmas/theorems/etc.
-   - Standardize naming for [domm], [codomm], [co_domm], [co_domain], etc.
-   - Create specialized versions of lemmas that use e.g. [domm f] instead of [X] and [codomm_Tm_set f] instead of [Y].
-   - Add concrete examples.
-   - Use SSReflect views instead of [rwP]?
-   - Break up into separate files?
-   - Remove unnecessary casts.
-   - Implement custom printing for notations.
-   - Give [⊆] a corresponding [Definition].
-   - Make [partial_bijection] [only parsing].
-   - Rename [dPlaceShift] to [de_Bruijn_shift]. *)
+(* The code style is pretty messy, since we've been prioritizing prototyping speed so far.
+   However, now that the main results have been formalized, we intend to heavily refactor the proof scripts.
+
+   ===== TODOs =====
+   These will probably be rendered moot by [compute-sets] (assuming it is a success):
+     - Remove [bool]/[Prop] output distinctions (e.g. [\in] vs [∈])?
+     - Remove unnecessary casts.
+     - Standardize naming for [domm], [codomm], [co_domm], [co_domain], etc.
+     - Create specialized versions of lemmas that use e.g. [domm f] instead of [X] and [codomm_Tm_set f] instead of [Y].
+   These will best be tackled after finishing (or abandoning) [compute-sets]:
+     - Name hypotheses explicitly in proofs.
+     - Use [Lemma]s or ([Hint Extern]s) to remove duplication in proofs. (Maybe in combination with [autorewrite]?)
+     - Clean up ordering of definitions/lemmas/parameters/notations/etc.
+     - Improve names of lemmas/theorems/etc.
+     - Remove dead code.
+     - Use SSReflect view syntax instead of [rwP].
+     - Break up into separate files?
+   These are ndependent of [compute-sets]:
+     - Implement [𝒱] and [Alpha] concretely (with both [string] and [nat]?).
+     - Add documentation for [`≡_α] notations, and define them globally instead of redefining them.
+     - Add concrete examples.
+     - Implement custom printing for notations.† *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
@@ -62,6 +63,7 @@ Module Alpha.
     | variable x => x ∈ X
     end.
 
+  (** Page 2: "Instead of defining a set of terms we define a family of sets Tm(X) of terms with free variables in X ⊆fin 𝒱 inductively...." *)
   Section in_Tm.
     #[local] Reserved Notation "t '∈' 'Tm' X" (at level 40).
 
@@ -106,16 +108,27 @@ Module Alpha.
       simpl in *. rewrite H2 // in Heqb.
   Qed.
 
-  #[local] Notation "R '⊆' X '×' Y" :=
-    (forall a b, R a b -> (a ∈ X) /\ (b ∈ Y)) (at level 40, X at next level).
+  Definition is_subset_of
+             (A B P__A P__B : Type)
+             `{HasMembers A P__A Prop}
+             `{HasMembers B P__B Prop}
+             (R : A -> B -> Prop)
+             (X : P__A)
+             (Y : P__B) :
+    Prop :=
+    forall a b, R a b -> (a ∈ X) /\ (b ∈ Y).
 
-  Notation partial_bijection := is_injective.
+  #[local] Notation "R '⊆' X '×' Y" := (is_subset_of R X Y) (at level 40, X at next level).
 
+  Notation partial_bijection := is_injective (only parsing).
+
+  (** Page 3: "Given R a partial bijection as above and x, y ∈ 𝒱 we define the symmetric update of R as...." *)
   Definition update R x y : {fmap 𝒱 → 𝒱} :=
     unionm (remm (rem_valm _ R y) x) [fmap (x, y)].
 
   #[local] Notation "R '⦅' x ',' y '⦆'" := (update R x y) (at level 0).
 
+  (** Page 3: "It is easy to see that R(x,y) is a partial bijection." *)
   Lemma partial_bijection_update :
     forall R x y,
       partial_bijection R ->
@@ -144,12 +157,14 @@ Module Alpha.
         -- rewrite Heqo //.
   Qed.
 
+  (** Page 3: "R(x,y) ... ∈ (X ∪ {x}) × (Y ∪ {y})." *)
   Lemma update_type :
     forall X Y R x y,
       (forall a b : 𝒱, R a b -> (a ∈ X : bool) : Prop /\ b ∈ Y) ->
       (R : {fmap 𝒱 → 𝒱}) ⊆ X × Y ->
       R⦅x,y⦆ ⊆ (X ∪ {x}) × (Y ∪ {y}).
   Proof.
+    unfold is_subset_of.
     intros.
     rewrite /= !in_fsetU !in_fset1.
     rewrite /fmap_to_Prop /update unionmE remmE setmE rem_valmE /= in H1.
@@ -173,6 +188,7 @@ Module Alpha.
 
   where "t '≡_α^' R u" := (α_equivalent' R t u).
 
+  (** Page 3: "We now define ≡α^R ⊆ Tm(X) × Tm(Y) parametrized by a partial bijection R ⊆ X × Y, inductively...." *)
   Section α_equivalent''.
     #[local] Reserved Notation "t '≡_α^' R u" (at level 40, R at level 0).
 
@@ -224,12 +240,13 @@ Module Alpha.
     - apply H in H2. auto.
   Qed.
 
+  (** Page 3: "We now define ≡α^R ⊆ Tm(X) × Tm(Y)." *)
   Lemma α_equivalent'_type :
     forall X Y x y R,
       R ⊆ X × Y ->
       (fun t u => t ≡_α^R u) ⊆ Tm X × Tm Y.
   Proof.
-    intros.
+    intro_all.
     gen_dep b R X Y. induction a; intros;
     destruct b; inverts H0.
     - split;
@@ -255,7 +272,7 @@ Module Alpha.
   #[global] Instance function_HasCoDomain (A B : eqType) : HasCoDomain A B (A -> B) :=
     { has_co_domm _ _ _ _ (f : A -> B) P__A P__B := forall a : A, (a : Equality.sort A) ∈ P__A : Prop -> f a ∈ P__B : Prop }.
 
-  (* TODO The domm condition does *not* need to be bidirectional, I don't think. *)
+  (* TODO The [domm] condition does *not* need to be bidirectional, I don't think. *)
   #[global] Instance fmap_HasCoDomain (A B : ordType) : HasCoDomain A B {fmap A → B} :=
     { has_co_domm _ _ _ _ m P__A P__B := (forall a : A, a ∈ domm m : Prop <-> a ∈ P__A) /\ Forall (fun b => b ∈ P__B) (codomm m) }.
 
@@ -266,6 +283,7 @@ Module Alpha.
   #[local] Notation "f '∈' X '→' Y" :=
     (has_co_domm f X Y) (at level 70, X at next level, Y at next level) : type_scope.
 
+  (** Page 3: Given X, Y, Z ⊂fin 𝒱 we write 1X = ...." *)
   Definition identity : {fset 𝒱} -> {fmap 𝒱 → 𝒱} := mkfmapf id.
 
   Class Identity (A : Type) :=
@@ -284,9 +302,10 @@ Module Alpha.
   #[global] Instance fmap_to_Prop_Identity : Identity (𝒱 -> 𝒱 -> Prop) :=
     { identity' := identity }.
 
+  (** Page 3: "1X ... ⊆ X × X." *)
   Lemma identity_type : forall X, (1__X : {fmap 𝒱 → 𝒱}) ⊆ X × X.
   Proof.
-    intros.
+    intro_all.
     rewrite /identity' /= /fmap_to_Prop mkfmapfE in H.
     destruct (a \in X) eqn:?; rewrite Heqb0 // in H.
     inverts H. auto.
@@ -304,6 +323,7 @@ Module Alpha.
       destruct (x0 \in X) eqn:?; rewrite Heqb in H; inverts H; auto.
   Qed.
 
+  (** Page 3: "1X... obviously is a partial bijection." *)
   Lemma partial_bijection_identity : forall X, partial_bijection (1__X : {fmap 𝒱 → 𝒱}).
   Proof.
     intros.
@@ -318,20 +338,23 @@ Module Alpha.
     auto.
   Qed.
 
+  (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write...." *)
   Definition converse R : {fmap 𝒱 → 𝒱} := invm R.
 
   #[local] Notation "R 'ᵒ'" := (converse R) (at level 40).
 
+  (** Page 3: "Rᵒ ... ⊆ Y × X." *)
   Lemma converse_type :
     forall X Y R,
       R ⊆ X × Y ->
       R ᵒ ⊆ Y × X.
   Proof.
     intros ? ? ? ?.
-    intros.
+    intro_all.
     rewrite /fmap_to_Prop in H0. apply getm_inv in H0. apply H in H0 as []. auto.
   Qed.
 
+  (** Page 3: "Both operations are closed under partial bijections. *)
   Lemma converse_closed_under_partial_bijection :
     forall R,
       partial_bijection R ->
@@ -344,6 +367,7 @@ Module Alpha.
     symmetry in H1. apply getm_inv in H0, H1. rewrite H0 in H1. inverts H1. auto.
   Qed.
 
+  (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write...." *)
   Definition compose R S : {fmap 𝒱 → 𝒱} :=
     mkfmapfp
       (fun k =>
@@ -355,19 +379,21 @@ Module Alpha.
 
   #[local] Notation "R ';' S" := (compose R S) (at level 40).
 
+  (** Page 3: "R;S ... ⊆ X × Z." *)
   Lemma compose_type :
     forall X Y Z R S,
       R ⊆ X × Y ->
       S ⊆ Y × Z ->
       R; S ⊆ X × Z.
   Proof.
-    intros.
+    intro_all.
     rewrite /fmap_to_Prop mkfmapfpE in H1.
     destruct (a \in domm R) eqn:?; rewrite Heqb0 // in H1.
     apply (rwP dommP) in Heqb0 as []. rewrite H2 in H1.
     apply H in H2 as []. apply H0 in H1 as []. auto.
   Qed.
 
+  (** Page 3: "Both operations are closed under partial bijections." *)
   Lemma compose_closed_under_partial_bijection :
     forall R S,
       partial_bijection R ->
@@ -394,6 +420,7 @@ Module Alpha.
     apply (rwP dommP). rewrite H3 in H4. eauto.
   Qed.
 
+  (** Page 3: Lemma 1.1. *)
   Lemma update_identity : forall X x, (1__X) ⦅x,x⦆ = 1__(X ∪ {x}).
   Proof.
     intros.
@@ -408,6 +435,7 @@ Module Alpha.
       + rewrite emptymE //.
   Qed.
 
+  (** Page 3: Lemma 1.2. *)
   Lemma update_converse :
     forall R x y,
       partial_bijection R ->
@@ -461,6 +489,7 @@ Module Alpha.
           apply (rwP eqP) in H0. inverts H0. pose proof (Heqo k'). rewrite Heqo0 eq_refl // in H0.
   Qed.
 
+  (** Page 3: Lemma 1.3. *)
   Lemma update_compose :
     forall R S x y z k v,
       getm (R⦅x,y⦆; S⦅y,z⦆) k = Some v ->
@@ -492,6 +521,7 @@ Module Alpha.
       apply (introF eqP) in n1. rewrite n1 //.
   Qed.
 
+  (** Page 4: Proposition 2.1. *)
   Proposition α_equivalent'_identity :
     forall X t,
       t ∈ Tm X : Prop ->
@@ -507,6 +537,7 @@ Module Alpha.
     - rewrite /= mkfmapfE H1 //.
   Qed.
 
+  (** Page 4: Proposition 2.2. *)
   Proposition α_equivalent'_converse :
     forall R t u,
       partial_bijection R ->
@@ -553,6 +584,7 @@ Module Alpha.
     - apply (rwP eqP), H in H2. rewrite /= H2 //.
   Qed.
 
+  (* Page 4: Proposition 2.3. *)
   Proposition α_equivalent'_compose :
     forall R S t u (v : term),
       t ≡_α^R u ->
@@ -722,10 +754,20 @@ Module Alpha.
       + rewrite mem_seq1 in H0. apply (rwP eqP) in H0. subst. auto.
   Qed.
 
+  (** Page 4: "We now define ≡α = ≡α^1X." *)
   Definition α_equivalent t u := exists X, t ≡_α^(1__X) u.
 
   Infix "≡_α" := α_equivalent (at level 40).
 
+  (** We will use these notations when the assumptions make it impossible for a substitution to fail, but Coq can't figure that out (without a lot of dependent-type boilerplate, which we want to avoid for clarity).
+      We will use [#[program]] to discover the wildcard variables, since their values don't actually matter. *)
+  #[local] Notation "a '`≡_α' b" :=
+    (odflt (variable _) a ≡_α odflt (variable _) b) (at level 40).
+
+  #[local] Notation "a '`≡_α^' R b" :=
+    (odflt (variable _) a ≡_α^R odflt (variable _) b) (at level 40, R at level 0).
+
+  (** Page 4: "≡α is... reflexive." *)
   Corollary α_equivalent_reflexive : forall t, t ≡_α t.
   Proof.
     intros.
@@ -733,6 +775,7 @@ Module Alpha.
     apply α_equivalent'_identity, in_Tm_free_variables.
   Qed.
 
+  (** Page 4: "≡α is... transitive." *)
   Corollary α_equivalent_transitive :
     forall t u (v : term),
       t ≡_α u ->
@@ -745,6 +788,7 @@ Module Alpha.
     unfold α_equivalent. eauto.
   Qed.
 
+  (** Page 4: "≡α is... symmetric." *)
   Corollary α_equivalent_symmetric :
     forall t u,
       t ≡_α u ->
@@ -756,6 +800,7 @@ Module Alpha.
     - apply partial_bijection_identity.
   Qed.
 
+  (** Page 4: Corollary 3. *)
   #[global] Instance α_equivalent_Equivalence : Equivalence α_equivalent.
   Proof.
     split; intro_all.
@@ -764,8 +809,11 @@ Module Alpha.
     - eapply α_equivalent_transitive; eauto.
   Qed.
 
+  (** Since Coq doesn't directly support quotient types, we're representing "Tm^α(X)" as "Tm(X)" and manually proving that functions respect "≡α". *)
+
   Implicit Types f g : {fmap 𝒱 → term}.
 
+  (** Page 4: "Given a substitution f and x ∈ 𝒱, t ∈ Tm(Y) we define the update...." *)
   Definition update_substitution (A : Type) : {fmap 𝒱 → A} -> 𝒱 -> A -> {fmap 𝒱 → A} := @setm _ _.
 
   #[local] Notation "f '[' x ',' t ']'" := (update_substitution f x t) (at level 10, x at next level, t at next level).
@@ -920,14 +968,10 @@ Module Alpha.
 
   Parameter Fresh_correct : forall X, Fresh X ∉ X.
 
+  (** This takes an explicit [Y] parameter in order to generate fresh bound names. *)
   #[local] Reserved Notation "'`⦇' f '⦈'".
 
-  (* TODO Calculate [Y] internally (i.e. via [codomm_Tm_set]?) rather than requiring it to
-          be passed as an argument?
-     UPDATE This might not actually be a good idea, since I think it makes some induction
-            hypotheses too specific (since it's no longer possible to use a [Y] from
-            [f ∈ X → Tm Y], for example). Maybe have a backup notation for "explicitly pass in
-            Y" and let [`⦇_⦈] be the autocomputed case? *)
+  (** Page 4: "A substitution can be extended to a function on terms ⦇f⦈ \in Tm(X) → Tm(Y)...." *)
   Fixpoint lift_substitution f Y t : term :=
     match t with
     | variable x => odflt t (getm f x)
@@ -939,6 +983,7 @@ Module Alpha.
 
   where "'`⦇' f '⦈'" := (lift_substitution f).
 
+  (** This automatically calculates the [Y] to use. Still, the [`⦇⦈] form can be helpful in induction. *)
   #[local] Notation "'⦇' f '⦈'" := (lift_substitution f (codomm_Tm_set f)).
 
   #[global] Instance lift_substitution_Identity : Identity ({fmap 𝒱 → term} -> term -> term) :=
@@ -983,6 +1028,7 @@ Module Alpha.
       apply In_mem, H1 in H2. auto.
   Qed.
 
+  (** Page 4: "⦇f⦈ ∈ Tm(X) ⟶ Tm (Y)." *)
   Lemma lift_substitution_type :
     forall X Y f,
       f ∈ X → Tm Y ->
@@ -1098,9 +1144,9 @@ Module Alpha.
     apply (rwP (@eqP _ _ (Some y))).
     rewrite /update unionmE remmE rem_valmE setmE /= H2.
     destruct (x =P z); subst.
-    { apply H in H2 as []. rewrite H2 // in H0. }
+    { apply H in H2 as []. simpl in *. rewrite H2 // in H0. }
     destruct (z' =P y); subst; auto.
-    apply H in H2 as []. rewrite H3 // in H1.
+    apply H in H2 as []. simpl in *. rewrite H3 // in H1.
   Qed.
 
   Lemma update_repeat_noop :
@@ -1307,9 +1353,7 @@ Module Alpha.
   Qed.
 
   Section substitution_preserves_α_congruence.
-    #[local] Notation "a '`≡_α^' R b" :=
-      (odflt (variable _) a ≡_α^R odflt (variable _) b) (at level 40, R at level 0).
-
+    (** Page 5: Lemma 5. *)
     #[program] Lemma lemma5 :
       forall R S X X' Y Y' f g,
         f ∈ X → Tm Y ->
@@ -1336,7 +1380,7 @@ Module Alpha.
         destruct (y =P s); subst; inverts H8.
         apply not_eq_sym, (introF eqP) in n0. rewrite n0.
         apply H5 in Heqo. inverts Heqo.
-        eapply α_equivalent_update; auto.
+        eapply α_equivalent_update; eauto.
     Qed.
 
     Lemma subset_co_domm :
@@ -1346,7 +1390,7 @@ Module Alpha.
         Y ⊆ Y' ->
         R ⊆ X' × Y'.
     Proof.
-      intros.
+      intro_all.
       apply H in H2 as [].
       apply H0 in H2. apply H1 in H3. auto.
     Qed.
@@ -1362,6 +1406,7 @@ Module Alpha.
       destruct (a =P x); subst; eauto.
     Qed.
 
+    (** Page 4: Proposition 4. *)
     #[program] Proposition substitution_preserves_α_congruence'' :
       forall R S X X' Y Y' f g W W',
         f ∈ X → Tm Y ->
@@ -1419,7 +1464,7 @@ Module Alpha.
             rewrite in_fsetU H14 //.
           * apply H.
           * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-        + intros.
+        + intro_all.
           rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H13.
           destruct (a =P Fresh W); subst.
           * inverts H13.
@@ -1430,7 +1475,7 @@ Module Alpha.
                simpl in *. rewrite !in_fsetU H14 H15 //.
             -- inverts H13.
         + apply partial_bijection_update. auto.
-        + intros.
+        + intro_all.
           rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H13.
           destruct (a =P s); subst.
           * inverts H13.
@@ -1465,7 +1510,7 @@ Module Alpha.
       intros.
       eapply substitution_preserves_α_congruence''; eauto;
       try solve [apply identity_type | apply partial_bijection_identity].
-      - intros.
+      - intro_all.
         rewrite /fmap_to_Prop mkfmapfE in_fsetI in H5.
         destruct (a \in W1) eqn:?; inverts H5.
         destruct (a \in W2) eqn:?; inverts H7. auto.
@@ -1499,6 +1544,7 @@ Module Alpha.
     #[local] Notation "a '`≡_α' b" :=
       (odflt (variable _) a ≡_α odflt (variable _) b) (at level 40).
 
+    (** Page 5: "Clearly, the preservation property arises as a special case by setting R = 1X and S = 1Y." *)
     #[program] Theorem substitution_preserves_α_congruence :
       forall X Y f g,
         f ∈ X → Tm Y ->
@@ -1550,6 +1596,7 @@ Module Alpha.
     - apply in_Tm_free_variables.
   Qed.
 
+  (** Page 5: "A consequence of proposition 4 is that substitution is an operation on α-equivalence classes." *)
   Theorem substitution_respects_α_equivalence :
     forall X Y f t u,
       f ∈ X → Tm Y ->
@@ -1563,6 +1610,7 @@ Module Alpha.
     reflexivity.
   Qed.
 
+  (** Page 6: Lemma 7. *)
   Lemma lemma7 :
     forall X Y (f : {fmap 𝒱 → 𝒱}) t,
       f ∈ X → Y ->
@@ -1627,8 +1675,10 @@ Module Alpha.
       apply H, (rwP dommP) in H1. destruct H1. rewrite H1 // in Heqo.
   Qed.
 
+  (** Page 6: "η(x) = x." *)
   Definition η__ X : {fmap 𝒱 → term} := 1__X.
 
+  (** Page 6: "ηX ∈ X → Tm^α(X)". *)
   Lemma η_type :
     forall X,
       η__ X ∈ X → Tm X.
@@ -1725,12 +1775,6 @@ Module Alpha.
   Qed.
 
   Section lift_substitution_indistinguishable_substitutions.
-    #[local] Notation "a '`≡_α' b" :=
-      (odflt (variable _) a ≡_α odflt (variable _) b) (at level 40).
-
-    #[local] Notation "a '`≡_α^' R b" :=
-      (odflt (variable _) a ≡_α^R odflt (variable _) b) (at level 40, R at level 0).
-
     #[program] Lemma lift_substitution_indistinguishable_substitutions'' :
       forall R X Y1 Y2 Z1 Z2 f g t W1 W2,
         f ∈ Z1 → Tm Y1 ->
@@ -1926,12 +1970,7 @@ Module Alpha.
   Qed.
 
   Section monad_substitution.
-    #[local] Notation "a '`≡_α' b" :=
-      (odflt (variable _) a ≡_α odflt (variable _) b) (at level 40).
-
-    #[local] Notation "a '`≡_α^' R b" :=
-      (odflt (variable _) a ≡_α^R odflt (variable _) b) (at level 40, R at level 0).
-
+    (** Page 7: "We have to show ⦇f[[z0 = z1]]⦈ ∘ g[[x = z0]](v) ≡α (⦇f⦈ ∘ g)[[x = z1]](v)." *)
     #[program] Lemma lift_update_substitution_compose_substitution_update :
       forall X Y Z f g x z0 z1,
         g ∈ X → Tm Y ->
@@ -2153,6 +2192,7 @@ Module Alpha.
         apply H in H2. auto.
     Qed.
 
+    (** Page 6: Proposition 6. *)
     #[program] Proposition monad_substitution :
       forall X Y Z f g,
         g ∈ X → Tm Y ->
@@ -2227,6 +2267,7 @@ Module Alpha.
     apply H. auto.
   Qed.
 
+  (** Page 5: "To show that substitution is well behaved, i.e. laws such as...." *)
   Lemma substitution_law1 :
     forall t u x,
       x ∉ FV t ->
@@ -2569,6 +2610,7 @@ Module Alpha.
         rewrite remmE mapmE mkfmapfE H H0 //.
   Qed.
 
+  (** Page 5: "To show that substitution is well behaved, i.e. laws such as...." *)
   Lemma substitution_law2 :
     forall t u (v : term) x y,
       x <> y ->
@@ -2756,10 +2798,13 @@ Module Alpha.
                 rewrite H1. reflexivity.
   Qed.
 
-  (* TODO Formalize the resulting Kliesli-category. *)
+  (** Page 7: "A monad gives rise to its Kleisli-category...." *)
+
+  (** TODO Explicitly formalize the resulting Kliesli-category? *)
 
   Implicit Types (c d i j n : nat) (ϕ ψ : {fmap 𝒱 → nat}).
 
+  (** Page 7: "Here we identify n ∈ Nat with the set {i ∈ Nat | i < n}." *)
   #[global] Instance nat_HasMembers : HasMembers nat nat bool :=
     { is_member_of i n := i < n }.
 
@@ -2784,6 +2829,7 @@ Module Alpha.
 
   #[local] Notation "'Tm^db'" := de_Bruijn_Tm.
 
+  (** Page 7: "For any n ∈ Nat we define the set Tm^db(n) of de Bruijn terms with at most n free Variables inductively by the following rules:...." *)
   Section in_de_Bruijn_Tm.
     Reserved Notation "x '∈' 'Tm^db' n" (at level 40).
 
@@ -2829,6 +2875,7 @@ Module Alpha.
 
   #[local] Notation "ϕ '^+' x" := (update_ϕ x ϕ).
 
+  (** Page 8: "where ϕ^+x(y) = ...." *)
   Lemma update_ϕ_correct :
     forall X n ϕ x y,
       ϕ ∈ X → n ->
@@ -2880,6 +2927,7 @@ Module Alpha.
       + destruct (x1 =P x); subst; inverts H3. auto.
   Qed.
 
+  (** Page 8: "Note that ϕ^+x is an injection, if ϕ is." *)
   Lemma injective_update_ϕ :
     forall ϕ x,
       is_injective ϕ ->
@@ -2908,6 +2956,7 @@ Module Alpha.
 
   #[local] Reserved Notation "t '^' ϕ" (at level 30, ϕ at level 30).
 
+  (** Pages 7-8: "we assign to any t ∈ Tm(X) a de Bruijn term t^ϕ ∈ Tm^db(n) by...." *)
   Fixpoint to_de_Bruijn t ϕ : de_Bruijn_term :=
     match t with
     | variable x =>
@@ -2920,6 +2969,7 @@ Module Alpha.
 
   where "t '^' ϕ" := (to_de_Bruijn t ϕ).
 
+  (** Page 8: "t^ϕ ∈ Tm^db(n)". *)
   Lemma to_de_Bruijn_type :
     forall X n ϕ t,
       ϕ ∈ X → n ->
@@ -2939,6 +2989,7 @@ Module Alpha.
       apply H0, In_mem, (rwP codommP); eauto.
   Qed.
 
+  (** Page 8: "where R is the pullback of ϕ and ψ, i.e. ...." *)
   Definition is_pullback R ϕ ψ : Prop :=
     forall x y, R x y <-> (x ∈ domm ϕ /\ getm ϕ x = getm ψ y).
 
@@ -3005,6 +3056,7 @@ Module Alpha.
              rewrite setmE mapimE n0 Heqo0 Heqo1 // in H5.
   Qed.
 
+  (** Page 8: Lemma 9. *)
   Lemma lemma9 :
     forall X Y n R ϕ ψ t u,
       R ⊆ X × Y ->
@@ -3108,6 +3160,7 @@ Module Alpha.
     apply maximum_correct. auto.
   Qed.
 
+  (** Page 7: "Proposition 8: -^ϕ is an injection between Tm^α(X) → Tm^db(n)...." *)
   Proposition to_de_Bruijn_chooses_canonical_representations :
     forall t u ϕ,
       is_injective ϕ ->
@@ -3126,7 +3179,7 @@ Module Alpha.
 
   #[local] Reserved Notation "'↑_' c '^' d dBt" (at level 40, c at level 0, d at level 0).
 
-  Fixpoint dPlaceShift d c dBt : de_Bruijn_term :=
+  Fixpoint de_Bruijn_shift d c dBt : de_Bruijn_term :=
     match dBt with
     | de_Bruijn_variable k =>
       if k < c
@@ -3138,7 +3191,7 @@ Module Alpha.
       de_Bruijn_application (↑_c^d dBt) (↑_c^d dBu)
     end
 
-  where "'↑_' c '^' d dBt" := (dPlaceShift d c dBt).
+  where "'↑_' c '^' d dBt" := (de_Bruijn_shift d c dBt).
 
   #[local] Notation "'↑^' d dBt" := (↑_0^d dBt) (at level 40, d at level 0).
 
@@ -3991,6 +4044,10 @@ Module Alpha.
       rewrite /= in_fsetU in_fsetD in_fset1 n Heqb //.
   Qed.
 
+  (** Page 8: "I leave it to the reader to show that -^ϕ preserves substitution, i.e. it maps substitutions to named terms as given here to substitution on de Bruijn terms."
+
+      This is the only result not yet formalized.
+   *)
   Lemma TAPL_6_2_8 :
     forall X n ϕ t u x,
       ϕ ∈ X ∪ {x} → n ->
@@ -3998,341 +4055,5 @@ Module Alpha.
       is_injective ϕ ->
       (t[x⟵u])^ϕ = [odflt 0 (getm ϕ x)↦u^ϕ](t^ϕ).
   Proof.
-    intros.
-    gen_dep X n ϕ u x. induction t; intros.
-    - destruct (x =P s); subst.
-      { transitivity ((abstraction s t)^ϕ).
-        { assert (forall a : 𝒱, a ∈ FV (abstraction s t) : Prop -> a ∈ domm ϕ : Prop).
-          { simpl in *. intros.
-            rewrite in_fsetD in_fset1 in H2. apply (rwP andP) in H2 as []. apply negbTE in H2.
-            apply H. rewrite in_fsetU in_fset1 H2 orbF. apply H0.
-            rewrite !in_fsetU in_fsetD !in_fset1 H2 H3 //. }
-          eapply to_de_Bruijn_chooses_canonical_representations; auto.
-          - intros.
-            rewrite (α_equivalent_implies_same_free_variables (t := abstraction s t)) in H3; auto.
-            symmetry. apply substitution_noop_if_shadow.
-          - apply substitution_noop_if_shadow. }
-        simpl in *. f_equal.
-        rewrite noop_de_Bruijn_substitution; auto.
-        - simpl. intros.
-          rewrite domm_set domm_mapi in_fsetU in_fset1.
-          destruct (a =P s); subst; auto.
-          apply (introF eqP) in n0.
-          apply H. rewrite in_fsetU in_fset1 n0 orbF.
-          apply H0. rewrite !in_fsetU in_fsetD !in_fset1 n0 H2 //.
-        - rewrite <- (rwP (@codommPn _ _ (ϕ^+s) _)). intros.
-          apply negbT, Bool.not_true_iff_false. intro_all.
-          assert (s \in X ∪ {s}). { rewrite in_fsetU in_fset1 eq_refl orbT //. }
-          apply H, (rwP dommP) in H3 as [].
-          destruct (k' =P s); subst.
-          { rewrite setmE mapimE addn1 eq_refl // in H2. }
-          apply (introF eqP) in n0.
-          rewrite setmE mapimE n0 in H2.
-          destruct (getm ϕ k') eqn:?; auto.
-          rewrite /= H3 !addn1 /= in H2.
-          apply (rwP eqP) in H2. inverts H2.
-          rewrite -Heqo in H3.
-          apply (rwP (injectivemP _)) in H1.
-          apply H1 in H3; cycle 1.
-          { apply (rwP dommP). rewrite H3 Heqo. eauto. }
-          subst. rewrite eq_refl // in n0. }
-      destruct (x \in FV t) eqn:?; cycle 1.
-      { transitivity ((abstraction s t)^ϕ).
-        { assert (forall a : 𝒱, a ∈ FV (abstraction s t) : Prop -> a ∈ domm ϕ : Prop).
-          { simpl in *. intros.
-            rewrite in_fsetD in_fset1 in H2. apply (rwP andP) in H2 as []. apply negbTE in H2.
-            apply H. rewrite in_fsetU in_fset1.
-            destruct (a =P x); subst.
-            { rewrite orbT //. }
-            rewrite orbF. apply H0.
-            rewrite !in_fsetU in_fsetD !in_fset1 H2 H3 //. }
-          apply (introF eqP) in n0.
-          eapply to_de_Bruijn_chooses_canonical_representations; auto.
-          - intros.
-            rewrite (α_equivalent_implies_same_free_variables (t := abstraction s t)) in H3; auto.
-            symmetry. apply noop_substitution. rewrite /= in_fsetD in_fset1 n0 Heqb //.
-          - apply noop_substitution. rewrite /= in_fsetD in_fset1 n0 Heqb //. }
-        simpl in *. f_equal.
-        rewrite (noop_de_Bruijn_substitution' x); cycle 1; auto.
-        - apply injective_update_ϕ. auto.
-        - simpl. intros.
-          rewrite domm_set domm_mapi in_fsetU in_fset1.
-          destruct (a =P s); subst; auto.
-          apply H. rewrite in_fsetU in_fset1.
-          destruct (a =P x); subst.
-          { rewrite orbT //. }
-          rewrite orbF.
-          apply (introF eqP) in n1, n2.
-          apply H0. rewrite !in_fsetU in_fsetD !in_fset1 H2 n1 n2 //.
-        - apply (introF eqP) in n0.
-          rewrite setmE mapimE n0.
-          assert (x \in X ∪ {x}). { rewrite in_fsetU in_fset1 eq_refl orbT //. }
-          apply H, (rwP dommP) in H2 as [].
-          rewrite H2 //.
-        - rewrite Heqb //. }
-      apply (introF eqP) in n0.
-      simpl in *. f_equal.
-      set (f := (mapm variable (identity (FV t :\ s)))[x,u]).
-      set (z := Fresh (codomm_Tm_set f)).
-      set (g := f[s,variable z]).
-      assert (codomm_Tm_set f = (FV t :\ s :\ x) ∪ FV u). { apply codomm_Tm_set_update_identity. }
-      assert (codomm_Tm_set g = codomm_Tm_set f ∪ {z}).
-      { rewrite codomm_update_substitution.
-        replace (remm f s) with f; auto.
-        apply eq_fmap. intro_all.
-        rewrite remmE !setmE !mapmE !mkfmapfE !in_fsetD !in_fset1.
-        destruct (x0 =P x); subst.
-        { rewrite n0 //. }
-        destruct (x0 =P s); subst; auto. }
-      rewrite -H3.
-      subst g f.
-      simpl.
-      destruct (s =P z).
-      + rewrite -> e in *. clear e.
-        assert (⦇(1__(FV t :\ z))[x,u][z,variable z]⦈ t ≡_α ⦇(1__(FV t))[x,u]⦈ t).
-        { erewrite update_substitution_reorder'; cycle 1.
-          { apply η_type. }
-          { intro_all. rewrite H4 eq_refl // in n0. }
-          replace ((1__(FV t :\ z))[z,variable z]) with ((1__(FV t ∪ {z})) : {fmap 𝒱 → term}); cycle 1.
-          { apply eq_fmap. intro_all.
-            rewrite setmE !mapmE !mkfmapfE in_fsetU in_fsetD !in_fset1.
-            destruct (x0 =P z); subst.
-            { rewrite orbT //. }
-            destruct (x0 \in FV t) eqn:?; auto. }
-          destruct (z \in FV t) eqn:?.
-          { replace (FV t ∪ {z}) with (FV t); cycle 1.
-            { apply eq_fset. intro_all.
-              rewrite in_fsetU in_fset1.
-              destruct (x0 \in FV t) eqn:?; auto.
-              destruct (x0 =P z); subst; auto. rewrite Heqb1 // in Heqb0. }
-            reflexivity. }
-          apply lift_substitution_indistinguishable_substitutions with (X := FV t) (Y1 := ((FV t ∪ {z}) :\ x) ∪ FV u) (Y2 := (FV t :\ x) ∪ FV u) (Z1 := FV t ∪ {z} ∪ {x}) (Z2 := FV t ∪ {x}).
-          - apply update_identity'_type.
-          - apply update_identity'_type.
-          - simpl. intros. rewrite !in_fsetU H4 //.
-          - simpl. intros. rewrite in_fsetU H4 //.
-          - apply in_Tm_free_variables.
-          - simpl. intros.
-            rewrite !setmE !mapmE !mkfmapfE in_fsetU in_fset1 H4.
-            destruct (x0 =P x); subst.
-            { reflexivity. }
-            destruct (x0 =P z); subst.
-            { rewrite H4 // in Heqb0. }
-            reflexivity. }
-        transitivity ((t[x⟵u])^ϕ^+z).
-        { assert (FV (t[x⟵u]) ⊆ domm (ϕ^+z)).
-          { simpl. intros.
-            rewrite free_variables_after_substitute // in_fsetU in_fsetD in_fset1 in H5.
-            rewrite domm_set domm_mapi in_fsetU in_fset1.
-            destruct (a =P z); subst; auto.
-            apply H. rewrite in_fsetU in_fset1.
-            destruct (a =P x); subst; auto.
-            { rewrite orbT //. }
-            rewrite orbF. apply H0.
-            apply (introF eqP) in n1, n2.
-            rewrite !in_fsetU in_fsetD !in_fset1 n1 n2 H5 //. }
-          apply to_de_Bruijn_chooses_canonical_representations; auto.
-          - apply injective_update_ϕ. auto.
-          - simpl. intros.
-            apply α_equivalent_implies_same_free_variables in H4. rewrite -H4 in H6.
-            apply H5. auto. }
-        erewrite IHt; eauto.
-        * rewrite setmE mapimE n0 /=.
-          assert (x \in domm ϕ). { apply H. rewrite in_fsetU in_fset1 eq_refl orbT //. }
-          apply (rwP dommP) in H5 as []. rewrite H5 /=.
-          assert (z ∉ FV u).
-          { rewrite /z codomm_Tm_set_update_identity.
-            apply negbT, Bool.not_true_iff_false. intro_all.
-            pose proof Fresh_correct ((FV t :\ s :\ x) ∪ FV u).
-            rewrite in_fsetU !in_fsetD !in_fset1 negb_or !negb_and !negbK H6 andbF // in H7. }
-
-      (* TODO When [s <> z]: *)
-      assert (⦇(1__(FV t :\ s))[x,u][s,variable z]⦈ t ≡_α ⦇⦇(1__(FV t))[x,u]⦈ ∘ (1__(FV t))[s,variable z]⦈ t).
-      { eapply lift_substitution_indistinguishable_substitutions; eauto.
-        - apply substitution_type.
-        - apply substitution_type.
-
-
-
-      destruct (s \in FV t) eqn:?; cycle 1.
-      + transitivity ((⦇(mapm variable (identity (FV t :\ s)))[x,u]⦈ t)^ϕ^+z).
-        { apply to_de_Bruijn_chooses_canonical_representations.
-          - apply injective_update_ϕ. auto.
-          - simpl. intros.
-            rewrite domm_set domm_mapi in_fsetU in_fset1.
-            apply free_variables_lift_substitution_subset' with (X := FV t ∪ {x} ∪ {s}) in H4; cycle 1.
-            { applys_eq substitution_type 1 2; auto.
-              apply eq_fset. intro_all.
-              rewrite !domm_set domm_map domm_mkfmapf fsvalK !in_fsetU in_fsetD !in_fset1.
-              destruct (x0 =P s); subst.
-              { rewrite orbT //. }
-              destruct (x0 \in FV t) eqn:?; auto.
-              rewrite orbT //. }
-            { apply superset_in_Tm with (X__sub := FV t).
-              - simpl. intros. rewrite !in_fsetU H5 //.
-              - apply in_Tm_iff_superset_free_variables. auto. }
-            rewrite codomm_Tm_set_update_substitution in H4; cycle 1.
-            { rewrite domm_set domm_map domm_mkfmapf fsvalK in_fsetU in_fsetD !in_fset1 negb_or negb_and negbK eq_refl Heqb0 eq_sym n0 //. }
-            rewrite codomm_Tm_set_update_identity in H4.
-            rewrite /= !in_fsetU !in_fsetD !in_fset1 in H4.
-            destruct (a =P z); subst; auto.
-            apply H. rewrite in_fsetU in_fset1.
-            destruct (a =P x); subst.
-            { rewrite orbT //. }
-            rewrite orbF.
-            apply H0.
-            rewrite !in_fsetU in_fsetD !in_fset1.
-            rewrite orbF in H4.
-            destruct (a =P s); subst.
-            { rewrite H4 //. }
-            apply (introF eqP) in n2.
-            rewrite H4 n2 //.
-          - simpl. intros.
-            rewrite domm_set domm_mapi in_fsetU in_fset1.
-            apply free_variables_lift_substitution_subset with (X := (FV t :\ s) ∪ {x}) (Y := (FV t :\ s) ∪ FV u) in H4; cycle 1.
-            + apply update_substitution_type.
-              * apply enlarge_codomain with (P__sub := Tm (FV t :\ s)).
-                -- simpl. intros. apply superset_in_Tm with (X__sub := FV t :\ s); auto.
-                   simpl. intros. rewrite in_fsetU H6 //.
-                -- apply η_type.
-              * apply superset_in_Tm with (X__sub := FV u).
-                -- simpl. intros. rewrite in_fsetU H5 orbT //.
-                -- apply in_Tm_free_variables.
-            + apply superset_in_Tm with (X__sub := FV t).
-              * simpl. intros.
-                rewrite in_fsetU in_fsetD !in_fset1 H5.
-                destruct (a0 =P s); subst; auto.
-                rewrite H5 // in Heqb0.
-              * apply in_Tm_free_variables.
-            + destruct (a =P z); subst; auto.
-              apply H. rewrite in_fsetU in_fset1.
-              apply (rwP orP). left. apply H0.
-              rewrite !in_fsetU in_fsetD !in_fset1.
-              rewrite /= in_fsetU in_fsetD in_fset1 in H4. apply (rwP orP) in H4 as [].
-              * apply (rwP andP) in H4 as []. rewrite H4 H5 //.
-              * rewrite H4 orbT //.
-          - eapply lift_substitution_indistinguishable_substitutions with (X := FV t) (Z1 := (FV t :\ s) ∪ {x} ∪ {s}) (Z2 := (FV t :\ s) ∪ {x}) (Y1 := (FV t :\ s) ∪ FV u ∪ {z}) (Y2 := (FV t :\ s) ∪ FV u); eauto.
-            + apply update_substitution_type.
-              * apply update_substitution_type.
-                -- apply enlarge_codomain with (P__sub := Tm (FV t :\ s)).
-                   ++ simpl. intros. apply superset_in_Tm with (X__sub := FV t :\ s); auto.
-                      simpl. intros. rewrite !in_fsetU H5 //.
-                   ++ apply η_type.
-                -- apply superset_in_Tm with (X__sub := FV u).
-                   ++ simpl. intros. rewrite !in_fsetU H4 orbT //.
-                   ++ apply in_Tm_free_variables.
-              * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-            + apply update_substitution_type.
-              * apply enlarge_codomain with (P__sub := Tm (FV t :\ s)).
-                -- simpl. intros. apply superset_in_Tm with (X__sub := FV t :\ s); auto.
-                   simpl. intros. rewrite !in_fsetU H5 //.
-                -- apply η_type.
-              * apply superset_in_Tm with (X__sub := FV u).
-                ++ simpl. intros. rewrite !in_fsetU H4 orbT //.
-                ++ apply in_Tm_free_variables.
-            + simpl. intros. rewrite !in_fsetU in_fsetD !in_fset1 H4.
-              destruct (a =P s); subst; auto. rewrite H4 // in Heqb0.
-            + simpl. intros. rewrite in_fsetU in_fsetD !in_fset1 H4.
-              destruct (a =P s); subst; auto. rewrite H4 // in Heqb0.
-            + apply in_Tm_free_variables.
-            + simpl. intros.
-              rewrite !setmE !mapmE !mkfmapfE !in_fsetD !in_fset1 H4.
-              destruct (x0 =P s); subst.
-              { rewrite H4 // in Heqb0. }
-              reflexivity. }
-        replace (FV t :\ s) with (FV t); cycle 1.
-        { apply eq_fset. intro_all. rewrite in_fsetD in_fset1. destruct (x0 =P s); subst; auto. }
-        erewrite IHt with (n := S n); cycle 1; eauto.
-        { apply injective_update_ϕ. auto. }
-        { repeat (split; intros).
-          - rewrite !in_fsetU !in_fset1.
-            rewrite domm_set domm_mapi in_fsetU in_fset1 in H4.
-            apply (rwP orP) in H4 as [].
-            + apply (rwP eqP) in H4. subst.
-
-
-        apply (introF eqP) in n0.
-        simpl in *. f_equal.
-        set (f := (mapm variable (identity (FV t :\ s)))[x,u]).
-        set (z := Fresh (codomm_Tm_set f)).
-        set (g := f[s,variable z]).
-        assert (codomm_Tm_set f = (FV t :\ s :\ x) ∪ FV u). { apply codomm_Tm_set_update_identity. }
-        assert (codomm_Tm_set g = codomm_Tm_set f ∪ {z}).
-        { rewrite codomm_update_substitution.
-          replace (remm f s) with f; auto.
-          apply eq_fmap. intro_all.
-          rewrite remmE !setmE !mapmE !mkfmapfE !in_fsetD !in_fset1.
-          destruct (x0 =P x); subst.
-          { rewrite n0 //. }
-          destruct (x0 =P s); subst; auto. }
-        rewrite -H3.
-        subst g f.
-        replace ((mapm variable (identity (FV t :\ s)))[x,u][s,variable z])
-          with ((1__(FV t))[x,u][s,variable z]); cycle 1.
-        { apply eq_fmap. intro_all.
-          rewrite !setmE !mapmE !mkfmapfE in_fsetD in_fset1.
-          destruct (x0 =P s); subst; auto. }
-        destruct (x =P z); auto.
-        * rewrite <- e in *.
-          assert (x ∉ FV u).
-          { pose proof Fresh_correct (FV t :\ s :\ x ∪ FV u).
-            rewrite !in_fsetU negb_or in H4. apply (rwP andP) in H4 as [].
-            rewrite e /z H2 H5 //. }
-          destruct (s \in FV u) eqn:?.
-          -- destruct (x \in FV t) eqn:?.
-             ++ destruct (s \in FV t) eqn:?.
-                ** assert (⦇(1__(FV t))[x, u][s,variable x]⦈ t ≡_α
-                           ⦇⦇(1__(FV t))[x, u]⦈ ∘ (1__(FV t))[s,variable x]⦈ t).
-
-
-             { eapply lift_substitution_indistinguishable_substitutions with (X := FV t ∪ {s} ∪ {x}) (Y1 := FV t ∪ FV u ∪ {s} ∪ {x}) (Y2 := FV t ∪ FV u ∪ {s} ∪ {x}).
-               - apply update_substitution_type.
-                 + apply update_substitution_type.
-                   * apply enlarge_codomain with (P__sub := Tm (FV t)).
-                     -- simpl. intros. apply superset_in_Tm with (X__sub := FV t); auto.
-                        simpl. intros. rewrite !in_fsetU H6 //.
-                     -- apply η_type.
-                   * apply superset_in_Tm with (X__sub := FV u).
-                     -- simpl. intros. rewrite !in_fsetU H5 orbT //.
-                     -- apply in_Tm_free_variables.
-                 + rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-               - repeat (split; intros); eauto.
-                 rewrite -> Forall_forall. simpl. intros.
-                 apply In_mem, (rwP codommP) in H5 as [].
-                 rewrite mapmE setmE mapmE mkfmapfE in H5.
-                 destruct (x1 =P s); auto.
-                 + inversion H5. subst x1 x0.
-                   rewrite setmE mapmE mkfmapfE eq_refl /=.
-                   apply superset_in_Tm with (X__sub := FV u).
-                   * simpl. intros. rewrite !in_fsetU H6 orbT //.
-                   * apply in_Tm_free_variables.
-                 + destruct (x1 \in FV t) eqn:?; rewrite Heqb0 in H5; inversion H5; clear H5.
-                   rewrite /= setmE mapmE mkfmapfE in H7.
-                   destruct (x1 =P x).
-                   * subst x1 x0.
-                     rewrite setmE mapmE mkfmapfE Heqb0 eq_refl.
-                     apply superset_in_Tm with (X__sub := FV u).
-                     -- simpl. intros. rewrite !in_fsetU H5 orbT //.
-                     -- apply in_Tm_free_variables.
-                   * rewrite Heqb0 in H7. subst x0.
-                     apply (introF eqP) in n2.
-                     rewrite setmE mapmE mkfmapfE n2 Heqb0 /=.
-                     rewrite !in_fsetU Heqb0 //.
-               - simpl. intros.
-                 rewrite !in_fsetU !in_fset1.
-                 rewrite !in_fsetU !in_fset1 in H5.
-                 repeat apply (rwP orP) in H5 as []; rewrite H5 ?orbT //.
-               - simpl. intros.
-                 rewrite domm_map domm_set domm_map domm_mkfmapf fsvalK in_fsetU in_fset1.
-                 rewrite !in_fsetU !in_fset1 in H5.
-                 repeat apply (rwP orP) in H5 as []; rewrite ?H5 ?orbT //.
-                 apply (rwP eqP) in H5. subst a.
-               - apply in_Tm_free_variables.
-               - simpl. intros.
-                 rewrite !setmE !mapmE !setmE !mapmE !mkfmapfE H5 /=.
-                 destruct (x0 =P s).
-                 + subst x0.
-                   rewrite /= setmE mapmE mkfmapfE eq_refl /=.
-          replace (⦇(1__(FV t))[x,u][s,variable x]⦈ t)
-            with (⦇((1__(FV t))[x,u]) ∘ ⦇
+  Admitted.
 End Alpha.
