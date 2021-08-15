@@ -283,7 +283,7 @@ Module Alpha.
   #[local] Notation "f '∈' X '→' Y" :=
     (has_co_domm f X Y) (at level 70, X at next level, Y at next level) : type_scope.
 
-  (** Page 3: Given X, Y, Z ⊂fin 𝒱 we write 1X = ...." *)
+  (** Page 3: "Given X, Y, Z ⊂fin 𝒱 we write 1X = ...." *)
   Definition identity : {fset 𝒱} -> {fmap 𝒱 → 𝒱} := mkfmapf id.
 
   Class Identity (A : Type) :=
@@ -354,7 +354,7 @@ Module Alpha.
     rewrite /fmap_to_Prop in H0. apply getm_inv in H0. apply H in H0 as []. auto.
   Qed.
 
-  (** Page 3: "Both operations are closed under partial bijections. *)
+  (** Page 3: "Both operations are closed under partial bijections." *)
   Lemma converse_closed_under_partial_bijection :
     forall R,
       partial_bijection R ->
@@ -584,7 +584,7 @@ Module Alpha.
     - apply (rwP eqP), H in H2. rewrite /= H2 //.
   Qed.
 
-  (* Page 4: Proposition 2.3. *)
+  (** Page 4: Proposition 2.3. *)
   Proposition α_equivalent'_compose :
     forall R S t u (v : term),
       t ≡_α^R u ->
@@ -3160,7 +3160,7 @@ Module Alpha.
     apply maximum_correct. auto.
   Qed.
 
-  (** Page 7: "Proposition 8: -^ϕ is an injection between Tm^α(X) → Tm^db(n)...." *)
+  (** Page 7: Proposition 8. *)
   Proposition to_de_Bruijn_chooses_canonical_representations :
     forall t u ϕ,
       is_injective ϕ ->
