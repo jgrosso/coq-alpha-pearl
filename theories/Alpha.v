@@ -7,19 +7,17 @@
      - Remove unnecessary casts.
      - Standardize naming for [domm], [codomm], [co_domm], [co_domain], etc.
      - Create specialized versions of lemmas that use e.g. [domm f] instead of [X] and [codomm_Tm_set f] instead of [Y].
+
    These will best be tackled after finishing (or abandoning) [compute-sets]:
      - Name hypotheses explicitly in proofs.
      - Use [Lemma]s or ([Hint Extern]s) to remove duplication in proofs. (Maybe in combination with [autorewrite]?)
      - Clean up ordering of definitions/lemmas/parameters/notations/etc.
      - Improve names of lemmas/theorems/etc.
      - Remove dead code.
-     - Use SSReflect view syntax instead of [rwP].
      - Break up into separate files?
-   These are ndependent of [compute-sets]:
-     - Implement [𝒱] and [Alpha] concretely (with both [string] and [nat]?).
-     - Add documentation for [`≡_α] notations, and define them globally instead of redefining them.
-     - Add concrete examples.
-     - Implement custom printing for notations.† *)
+
+   These are independent of [compute-sets]:
+     - Implement custom printing for notations. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
@@ -32,12 +30,18 @@ Set Implicit Arguments.
 Set Bullet Behavior "Strict Subproofs".
 Unset Printing Implicit Defensive.
 
-Module Alpha.
-  #[local] Open Scope fset_scope.
+#[local] Open Scope fset_scope.
 
-  #[local] Notation "x '∪' '{' y '}'" := (x :|: fset1 y) (at level 52) : fset_scope.
-
+Module Type Alpha.
   Parameter 𝒱 : ordType.
+
+  Parameter Fresh : {fset 𝒱} -> 𝒱.
+
+  Parameter Fresh_correct : forall s : {fset 𝒱}, Fresh s ∉ s.
+End Alpha.
+
+Module AlphaFacts (Import M : Alpha).
+  #[local] Notation "x '∪' '{' y '}'" := (x :|: fset1 y) (at level 52) : fset_scope.
 
   Inductive term : Type :=
   | abstraction : 𝒱 -> term -> term
@@ -759,6 +763,8 @@ Module Alpha.
 
   Infix "≡_α" := α_equivalent (at level 40).
 
+  Notation "t '≢_α' u" := (~ t ≡_α u) (at level 40).
+
   (** We will use these notations when the assumptions make it impossible for a substitution to fail, but Coq can't figure that out (without a lot of dependent-type boilerplate, which we want to avoid for clarity).
       We will use [#[program]] to discover the wildcard variables, since their values don't actually matter. *)
   #[local] Notation "a '`≡_α' b" :=
@@ -963,10 +969,6 @@ Module Alpha.
       apply (rwP codommP). eauto. }
     rewrite in_fsetU H1 //.
   Qed.
-
-  Parameter Fresh : {fset 𝒱} -> 𝒱.
-
-  Parameter Fresh_correct : forall X, Fresh X ∉ X.
 
   (** This takes an explicit [Y] parameter in order to generate fresh bound names. *)
   #[local] Reserved Notation "'`⦇' f '⦈'".
@@ -1330,6 +1332,16 @@ Module Alpha.
     simpl in *. rewrite /fmap_to_Prop mkfmapfE H1.
     rewrite /fmap_to_Prop mkfmapfE in H0.
     destruct (x0 \in x) eqn:?; rewrite Heqb // in H0.
+  Qed.
+
+  Lemma α_equivalent_iff_α_equivalent'_free_variables :
+    forall t u,
+      t ≡_α u <-> t ≡_α^(1__(free_variables t)) u.
+  Proof.
+    intros.
+    split; intros.
+    - apply α_equivalent'_with_free_variables. auto.
+    - exists (free_variables t). auto.
   Qed.
 
   Lemma α_equivalent'_with_Tm_set :
@@ -4056,4 +4068,4 @@ Module Alpha.
       (t[x⟵u])^ϕ = [odflt 0 (getm ϕ x)↦u^ϕ](t^ϕ).
   Proof.
   Admitted.
-End Alpha.
+End AlphaFacts.
