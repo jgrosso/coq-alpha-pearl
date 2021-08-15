@@ -973,7 +973,7 @@ Module AlphaFacts (Import M : Alpha).
   (** This takes an explicit [Y] parameter in order to generate fresh bound names. *)
   #[local] Reserved Notation "'`⦇' f '⦈'".
 
-  (** Page 4: "A substitution can be extended to a function on terms ⦇f⦈ \in Tm(X) → Tm(Y)...." *)
+  (** Page 4: "A substitution can be extended to a function on terms ⦇f⦈ \in Tm(X) ⟶ Tm(Y)...." *)
   Fixpoint lift_substitution f Y t : term :=
     match t with
     | variable x => odflt t (getm f x)
@@ -1690,7 +1690,7 @@ Module AlphaFacts (Import M : Alpha).
   (** Page 6: "η(x) = x." *)
   Definition η__ X : {fmap 𝒱 → term} := 1__X.
 
-  (** Page 6: "ηX ∈ X → Tm^α(X)". *)
+  (** Page 6: "ηX ∈ X ⟶ Tm^α(X)." *)
   Lemma η_type :
     forall X,
       η__ X ∈ X → Tm X.

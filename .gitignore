@@ -45,3 +45,9 @@ time-of-build-after.log
 time-of-build-before.log
 time-of-build-both.log
 time-of-build-pretty.log
+
+# generated CoqIDE crash report files
+*.crashcoqide
+
+# generated documentation files
+html/
