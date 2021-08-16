@@ -1419,7 +1419,7 @@ Module AlphaFacts (Import M : Alpha).
     Qed.
 
     (** Page 4: Proposition 4. *)
-    #[program] Proposition substitution_preserves_α_congruence'' :
+    #[program] Proposition substitution_preserves_α_congruence' :
       forall R S X X' Y Y' f g W W',
         f ∈ X → Tm Y ->
         g ∈ X' → Tm Y' ->
@@ -1520,7 +1520,7 @@ Module AlphaFacts (Import M : Alpha).
         forall t u, t ≡_α^(1__X) u -> `⦇f⦈ W1 t ≡_α^(1__(W1 ∩ W2)) `⦇g⦈ W2 u.
     Proof.
       intros.
-      eapply substitution_preserves_α_congruence''; eauto;
+      eapply substitution_preserves_α_congruence'; eauto;
       try solve [apply identity_type | apply partial_bijection_identity].
       - intro_all.
         rewrite /fmap_to_Prop mkfmapfE in_fsetI in H5.
