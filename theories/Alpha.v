@@ -2478,32 +2478,6 @@ Module AlphaFacts (Import M : Alpha).
       rewrite mapmE mkfmapfE H //.
   Qed.
 
-  Lemma noop_substitution :
-    forall t u x,
-      x ∉ FV t ->
-      t[x⟵u] ≡_α t.
-  Proof.
-    intros.
-    transitivity (⦇1__(FV t)⦈ t).
-    { eapply lift_substitution_indistinguishable_substitutions with (X := FV t).
-      - apply substitution_type.
-      - apply substitution_type.
-      - simpl. intros.
-        apply (rwP dommP).
-        rewrite setmE mapmE mkfmapfE.
-        destruct (a =P x); subst; eauto.
-        rewrite H0 /=. eauto.
-      - intros. rewrite domm_identity' //.
-      - apply in_Tm_free_variables.
-      - simpl. intros.
-        rewrite setmE mapmE mkfmapfE.
-        destruct (x0 =P x); subst.
-        + rewrite H0 // in H.
-        + rewrite H0. reflexivity. }
-    eapply monad_substitution; try apply η_type.
-    apply in_Tm_free_variables.
-  Qed.
-
   Lemma free_variables_after_substitute :
     forall t u x,
       x ∈ FV t : Prop ->
@@ -2585,7 +2559,7 @@ Module AlphaFacts (Import M : Alpha).
   Proof.
     intros.
     apply α_equivalent_implies_same_free_variables.
-    symmetry. apply noop_substitution. auto.
+    symmetry. apply substitution_law1. auto.
   Qed.
 
   Lemma domm_update_identity :
@@ -2663,7 +2637,7 @@ Module AlphaFacts (Import M : Alpha).
             apply superset_in_Tm with (X__sub := FV t).
             + simpl. intros. rewrite in_fsetU H1 //.
             + apply in_Tm_free_variables.
-          - apply noop_substitution. simpl in *. rewrite Heqy0 //. }
+          - apply substitution_law1. simpl in *. rewrite Heqy0 //. }
         eapply lift_substitution_indistinguishable_substitutions.
         + apply substitution_type.
         + apply substitution_type.
@@ -2720,7 +2694,7 @@ Module AlphaFacts (Import M : Alpha).
             apply superset_in_Tm with (X__sub := FV t).
             + simpl. intros. rewrite in_fsetU H1 //.
             + apply in_Tm_free_variables.
-          - apply noop_substitution. simpl in *. rewrite Heqy0 //. }
+          - apply substitution_law1. simpl in *. rewrite Heqy0 //. }
         eapply lift_substitution_indistinguishable_substitutions.
         + apply substitution_type.
         + apply substitution_type.
