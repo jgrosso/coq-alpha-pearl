@@ -15,8 +15,6 @@
      - Improve names of lemmas/theorems/etc.
      - Remove dead code.
      - Break up into separate files?
-
-   These are independent of [compute-sets]:
      - Implement custom printing for notations. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
@@ -1364,230 +1362,225 @@ Module AlphaFacts (Import M : Alpha).
     apply H4 in H3. simpl in *. rewrite H3 //.
   Qed.
 
-  Section substitution_preserves_α_congruence.
-    (** Page 5: Lemma 5. *)
-    #[program] Lemma lemma5 :
-      forall R S X X' Y Y' f g,
-        f ∈ X → Tm Y ->
-        g ∈ X' → Tm Y' ->
-        R ⊆ X × X' ->
-        S ⊆ Y × Y' ->
-        partial_bijection R ->
-        partial_bijection S ->
-        (forall x x', R x x' -> getm f x `≡_α^S getm g x') ->
-        forall x y z z',
-          z ∉ Y ->
-          z' ∉ Y' ->
-          forall w w' : 𝒱, R⦅x,y⦆ w w' -> getm (f[x,variable z]) w `≡_α^(S⦅z,z'⦆) getm (g[y,variable z']) w'.
-    Proof.
-      intros.
-      rewrite /fmap_to_Prop /update unionmE remmE rem_valmE setmE /= in H8.
-      rewrite /update_substitution /update !setmE.
-      destruct (w =P x); subst.
-      - inverts H8.
-        rewrite !eq_refl.
-        rewrite /= unionmE remmE rem_valmE eq_refl setmE eq_refl //.
-      - destruct (getm R w) eqn:?; cycle 1.
-        { inverts H8. }
-        destruct (y =P s); subst; inverts H8.
-        apply not_eq_sym, (introF eqP) in n0. rewrite n0.
-        apply H5 in Heqo. inverts Heqo.
-        eapply α_equivalent_update; eauto.
-    Qed.
+  (** Page 5: Lemma 5. *)
+  #[program] Lemma lemma5 :
+    forall R S X X' Y Y' f g,
+      f ∈ X → Tm Y ->
+      g ∈ X' → Tm Y' ->
+      R ⊆ X × X' ->
+      S ⊆ Y × Y' ->
+      partial_bijection R ->
+      partial_bijection S ->
+      (forall x x', R x x' -> getm f x `≡_α^S getm g x') ->
+      forall x y z z',
+        z ∉ Y ->
+        z' ∉ Y' ->
+        forall w w' : 𝒱, R⦅x,y⦆ w w' -> getm (f[x,variable z]) w `≡_α^(S⦅z,z'⦆) getm (g[y,variable z']) w'.
+  Proof.
+    intros.
+    rewrite /fmap_to_Prop /update unionmE remmE rem_valmE setmE /= in H8.
+    rewrite /update_substitution /update !setmE.
+    destruct (w =P x); subst.
+    - inverts H8.
+      rewrite !eq_refl.
+      rewrite /= unionmE remmE rem_valmE eq_refl setmE eq_refl //.
+    - destruct (getm R w) eqn:?; cycle 1.
+      { inverts H8. }
+      destruct (y =P s); subst; inverts H8.
+      apply not_eq_sym, (introF eqP) in n0. rewrite n0.
+      apply H5 in Heqo. inverts Heqo.
+      eapply α_equivalent_update; eauto.
+  Qed.
 
-    Lemma subset_co_domm :
-      forall R X X' Y Y',
-        R ⊆ X × Y ->
-        X ⊆ X' ->
-        Y ⊆ Y' ->
-        R ⊆ X' × Y'.
-    Proof.
-      intro_all.
-      apply H in H2 as [].
-      apply H0 in H2. apply H1 in H3. auto.
-    Qed.
+  Lemma subset_co_domm :
+    forall R X X' Y Y',
+      R ⊆ X × Y ->
+      X ⊆ X' ->
+      Y ⊆ Y' ->
+      R ⊆ X' × Y'.
+  Proof.
+    intro_all.
+    apply H in H2 as [].
+    apply H0 in H2. apply H1 in H3. auto.
+  Qed.
 
-    Lemma subset_domm_substitution :
-      forall f x t,
-        domm f ⊆ domm (f[x,t]).
-    Proof.
-      simpl. intros.
-      apply (rwP dommP) in H as [].
-      apply (rwP dommP).
-      rewrite setmE.
-      destruct (a =P x); subst; eauto.
-    Qed.
+  Lemma subset_domm_substitution :
+    forall f x t,
+      domm f ⊆ domm (f[x,t]).
+  Proof.
+    simpl. intros.
+    apply (rwP dommP) in H as [].
+    apply (rwP dommP).
+    rewrite setmE.
+    destruct (a =P x); subst; eauto.
+  Qed.
 
-    (** Page 4: Proposition 4. *)
-    #[program] Proposition substitution_preserves_α_congruence' :
-      forall R S X X' Y Y' f g W W',
-        f ∈ X → Tm Y ->
-        g ∈ X' → Tm Y' ->
-        R ⊆ X × X' ->
-        S ⊆ W × W' ->
-        partial_bijection R ->
-        partial_bijection S ->
-        codomm_Tm_set f ⊆ W ->
-        codomm_Tm_set g ⊆ W' ->
-        (forall x x', R x x' -> getm f x `≡_α^S getm g x') ->
-        forall t u, t ≡_α^R u -> `⦇f⦈ W t ≡_α^S `⦇g⦈ W' u.
-    Proof.
-      intros.
-      gen_dep R S X X' Y Y' f g u W W'. induction t; intros;
-      destruct u; inverts H8.
-      - assert (f ∈ X → Tm W).
-        { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)).
-          - intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
-          - replace X with (domm f); cycle 1.
-            { eapply substitution_type_domm; eauto. }
-            apply substitution_type. }
-        assert (g ∈ X' → Tm W').
-        { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set g)).
-          - intros. apply superset_in_Tm with (X__sub := codomm_Tm_set g); auto.
-          - replace X' with (domm g); cycle 1.
-            { eapply substitution_type_domm; eauto. }
-            apply substitution_type. }
-        assert (S ⊆ W × W').
-        { intro_all.
-          apply H2 in H11 as [].
-          simpl in *. split; auto. }
-        (unshelve epose proof (lemma5 H8 H9 _ _ _ _ H7 s s0 _ _ (Fresh_correct W) (Fresh_correct W'))); eauto.
-        simpl.
-        eapply IHt with (Y := Y ∪ {Fresh W}) (Y' := Y' ∪ {Fresh W'}) in H12; eauto.
-        + simpl. intros. apply codomm_Tm_set_update_substitution' in H13.
-          simpl in *. rewrite in_fsetU in_fset1 in H13. rewrite in_fsetU in_fset1.
-          apply (rwP orP) in H13 as [].
-          * apply H6 in H13. rewrite H13 //.
-          * rewrite H13 orbT //.
-        + simpl. intros. apply codomm_Tm_set_update_substitution' in H13.
-          simpl in *. rewrite in_fsetU in_fset1 in H13. rewrite in_fsetU in_fset1.
-          apply (rwP orP) in H13 as [].
-          * apply H5 in H13. rewrite H13 //.
-          * rewrite H13 orbT //.
-        + apply update_substitution_type.
-          apply enlarge_codomain with (P__sub := Tm Y'); eauto.
-          * intros. apply superset_in_Tm with (X__sub := Y'); eauto; intros; simpl in *.
-            rewrite in_fsetU H14 //.
-          * apply H0.
-          * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-        + apply update_substitution_type.
-          apply enlarge_codomain with (P__sub := Tm Y); eauto.
-          * intros. apply superset_in_Tm with (X__sub := Y); eauto; intros; simpl in *.
-            rewrite in_fsetU H14 //.
-          * apply H.
-          * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-        + intro_all.
-          rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H13.
-          destruct (a =P Fresh W); subst.
-          * inverts H13.
-            do 2 rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-          * destruct (getm S a) eqn:?.
-            -- apply H11 in Heqo as [].
-               destruct (Fresh W' =P s1); subst; inverts H13.
-               simpl in *. rewrite !in_fsetU H14 H15 //.
-            -- inverts H13.
-        + apply partial_bijection_update. auto.
-        + intro_all.
-          rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H13.
-          destruct (a =P s); subst.
-          * inverts H13.
-            do 2 rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-          * destruct (getm R a) eqn:?.
-            -- apply H1 in Heqo as [].
-               destruct (s0 =P s1); subst; inverts H13.
-               simpl in *. rewrite !in_fsetU H14 H15 //.
-            -- inverts H13.
-        + apply partial_bijection_update. auto.
-      - apply (rwP andP) in H10 as [].
-        eapply IHt1 with (X := X) (Y := Y) (X' := X') (Y' := Y') (f := f) (g := g) (S := S) in H8; eauto.
-        eapply IHt2 with (X := X) (Y := Y) (X' := X') (Y' := Y') (f := f) (g := g) (S := S) in H9; eauto.
-        rewrite /= H8 H9 //.
-      - apply (rwP eqP) in H10.
-        pose proof H10. apply H1 in H8 as []. apply H in H8. apply H0 in H9.
-        simpl in *.
-        apply (rwP dommP) in H8 as []. apply (rwP dommP) in H9 as []. apply H7 in H10.
-        rewrite H8 H9 in H10.
-        rewrite H8 H9 //.
-    Qed.
+  (** Page 4: Proposition 4. *)
+  #[program] Proposition substitution_preserves_α_congruence' :
+    forall R S X X' Y Y' f g W W',
+      f ∈ X → Tm Y ->
+      g ∈ X' → Tm Y' ->
+      R ⊆ X × X' ->
+      S ⊆ W × W' ->
+      partial_bijection R ->
+      partial_bijection S ->
+      codomm_Tm_set f ⊆ W ->
+      codomm_Tm_set g ⊆ W' ->
+      (forall x x', R x x' -> getm f x `≡_α^S getm g x') ->
+      forall t u, t ≡_α^R u -> `⦇f⦈ W t ≡_α^S `⦇g⦈ W' u.
+  Proof.
+    intros.
+    gen_dep R S X X' Y Y' f g u W W'. induction t; intros;
+    destruct u; inverts H8.
+    - assert (f ∈ X → Tm W).
+      { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set f)).
+        - intros. apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
+        - replace X with (domm f); cycle 1.
+          { eapply substitution_type_domm; eauto. }
+          apply substitution_type. }
+      assert (g ∈ X' → Tm W').
+      { apply enlarge_codomain with (P__sub := Tm (codomm_Tm_set g)).
+        - intros. apply superset_in_Tm with (X__sub := codomm_Tm_set g); auto.
+        - replace X' with (domm g); cycle 1.
+          { eapply substitution_type_domm; eauto. }
+          apply substitution_type. }
+      assert (S ⊆ W × W').
+      { intro_all.
+        apply H2 in H11 as [].
+        simpl in *. split; auto. }
+      (unshelve epose proof (lemma5 H8 H9 _ _ _ _ H7 s s0 _ _ (Fresh_correct W) (Fresh_correct W'))); eauto.
+      simpl.
+      eapply IHt with (Y := Y ∪ {Fresh W}) (Y' := Y' ∪ {Fresh W'}) in H12; eauto.
+      + simpl. intros. apply codomm_Tm_set_update_substitution' in H13.
+        simpl in *. rewrite in_fsetU in_fset1 in H13. rewrite in_fsetU in_fset1.
+        apply (rwP orP) in H13 as [].
+        * apply H6 in H13. rewrite H13 //.
+        * rewrite H13 orbT //.
+      + simpl. intros. apply codomm_Tm_set_update_substitution' in H13.
+        simpl in *. rewrite in_fsetU in_fset1 in H13. rewrite in_fsetU in_fset1.
+        apply (rwP orP) in H13 as [].
+        * apply H5 in H13. rewrite H13 //.
+        * rewrite H13 orbT //.
+      + apply update_substitution_type.
+        apply enlarge_codomain with (P__sub := Tm Y'); eauto.
+        * intros. apply superset_in_Tm with (X__sub := Y'); eauto; intros; simpl in *.
+          rewrite in_fsetU H14 //.
+        * apply H0.
+        * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+      + apply update_substitution_type.
+        apply enlarge_codomain with (P__sub := Tm Y); eauto.
+        * intros. apply superset_in_Tm with (X__sub := Y); eauto; intros; simpl in *.
+          rewrite in_fsetU H14 //.
+        * apply H.
+        * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+      + intro_all.
+        rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H13.
+        destruct (a =P Fresh W); subst.
+        * inverts H13.
+          do 2 rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+        * destruct (getm S a) eqn:?.
+          -- apply H11 in Heqo as [].
+              destruct (Fresh W' =P s1); subst; inverts H13.
+              simpl in *. rewrite !in_fsetU H14 H15 //.
+          -- inverts H13.
+      + apply partial_bijection_update. auto.
+      + intro_all.
+        rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in H13.
+        destruct (a =P s); subst.
+        * inverts H13.
+          do 2 rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+        * destruct (getm R a) eqn:?.
+          -- apply H1 in Heqo as [].
+              destruct (s0 =P s1); subst; inverts H13.
+              simpl in *. rewrite !in_fsetU H14 H15 //.
+          -- inverts H13.
+      + apply partial_bijection_update. auto.
+    - apply (rwP andP) in H10 as [].
+      eapply IHt1 with (X := X) (Y := Y) (X' := X') (Y' := Y') (f := f) (g := g) (S := S) in H8; eauto.
+      eapply IHt2 with (X := X) (Y := Y) (X' := X') (Y' := Y') (f := f) (g := g) (S := S) in H9; eauto.
+      rewrite /= H8 H9 //.
+    - apply (rwP eqP) in H10.
+      pose proof H10. apply H1 in H8 as []. apply H in H8. apply H0 in H9.
+      simpl in *.
+      apply (rwP dommP) in H8 as []. apply (rwP dommP) in H9 as []. apply H7 in H10.
+      rewrite H8 H9 in H10.
+      rewrite H8 H9 //.
+  Qed.
 
-    #[program] Corollary substitution_preserves_α_congruence_identity' :
-      forall X Y f g W1 W2,
-        f ∈ X → Tm Y ->
-        g ∈ X → Tm Y ->
-        codomm_Tm_set f ⊆ W1 ->
-        codomm_Tm_set g ⊆ W2 ->
-        (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__(W1 ∩ W2)) getm g x) ->
-        forall t u, t ≡_α^(1__X) u -> `⦇f⦈ W1 t ≡_α^(1__(W1 ∩ W2)) `⦇g⦈ W2 u.
-    Proof.
-      intros.
-      eapply substitution_preserves_α_congruence'; eauto;
-      try solve [apply identity_type | apply partial_bijection_identity].
-      - intro_all.
-        rewrite /fmap_to_Prop mkfmapfE in_fsetI in H5.
-        destruct (a \in W1) eqn:?; inverts H5.
-        destruct (a \in W2) eqn:?; inverts H7. auto.
-      - intros.
-        rewrite /= /identity /fmap_to_Prop mkfmapfE in H5.
-        destruct (x \in X) eqn:?; rewrite Heqb // in H5. inverts H5.
-        apply H3. rewrite /= /identity /fmap_to_Prop mkfmapfE Heqb //.
-    Qed.
+  #[program] Corollary substitution_preserves_α_congruence_identity' :
+    forall X Y f g W1 W2,
+      f ∈ X → Tm Y ->
+      g ∈ X → Tm Y ->
+      codomm_Tm_set f ⊆ W1 ->
+      codomm_Tm_set g ⊆ W2 ->
+      (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__(W1 ∩ W2)) getm g x) ->
+      forall t u, t ≡_α^(1__X) u -> `⦇f⦈ W1 t ≡_α^(1__(W1 ∩ W2)) `⦇g⦈ W2 u.
+  Proof.
+    intros.
+    eapply substitution_preserves_α_congruence'; eauto;
+    try solve [apply identity_type | apply partial_bijection_identity].
+    - intro_all.
+      rewrite /fmap_to_Prop mkfmapfE in_fsetI in H5.
+      destruct (a \in W1) eqn:?; inverts H5.
+      destruct (a \in W2) eqn:?; inverts H7. auto.
+    - intros.
+      rewrite /= /identity /fmap_to_Prop mkfmapfE in H5.
+      destruct (x \in X) eqn:?; rewrite Heqb // in H5. inverts H5.
+      apply H3. rewrite /= /identity /fmap_to_Prop mkfmapfE Heqb //.
+  Qed.
 
-    #[program] Corollary substitution_preserves_α_congruence_identity :
-      forall X Y f g,
-        f ∈ X → Tm Y ->
-        g ∈ X → Tm Y ->
-        (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__Y) getm g x) ->
-        forall t u, t ≡_α^(1__X) u -> `⦇f⦈ Y t ≡_α^(1__Y) `⦇g⦈ Y u.
-    Proof.
-      intros.
-      replace (1__Y) with (1__(Y ∩ Y) : {fmap 𝒱 → 𝒱}) by rewrite fsetIid //.
-      eapply substitution_preserves_α_congruence_identity'; eauto; intros.
-      - destruct H. rewrite -> Forall_forall in H4.
-        apply (rwP codomm_Tm_setP) in H3 as (? & ? & ?).
-        apply In_mem, H4 in H5.
-        eapply in_Tm_iff_superset_free_variables in H5; eauto.
-      - destruct H0. rewrite -> Forall_forall in H4.
-        apply (rwP codomm_Tm_setP) in H3 as (? & ? & ?).
-        apply In_mem, H4 in H5.
-        eapply in_Tm_iff_superset_free_variables in H5; eauto.
-      - rewrite fsetIid. auto.
-    Qed.
+  #[program] Corollary substitution_preserves_α_congruence_identity :
+    forall X Y f g,
+      f ∈ X → Tm Y ->
+      g ∈ X → Tm Y ->
+      (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__Y) getm g x) ->
+      forall t u, t ≡_α^(1__X) u -> `⦇f⦈ Y t ≡_α^(1__Y) `⦇g⦈ Y u.
+  Proof.
+    intros.
+    replace (1__Y) with (1__(Y ∩ Y) : {fmap 𝒱 → 𝒱}) by rewrite fsetIid //.
+    eapply substitution_preserves_α_congruence_identity'; eauto; intros.
+    - destruct H. rewrite -> Forall_forall in H4.
+      apply (rwP codomm_Tm_setP) in H3 as (? & ? & ?).
+      apply In_mem, H4 in H5.
+      eapply in_Tm_iff_superset_free_variables in H5; eauto.
+    - destruct H0. rewrite -> Forall_forall in H4.
+      apply (rwP codomm_Tm_setP) in H3 as (? & ? & ?).
+      apply In_mem, H4 in H5.
+      eapply in_Tm_iff_superset_free_variables in H5; eauto.
+    - rewrite fsetIid. auto.
+  Qed.
 
-    #[local] Notation "a '`≡_α' b" :=
-      (odflt (variable _) a ≡_α odflt (variable _) b) (at level 40).
-
-    (** Page 5: "Clearly, the preservation property arises as a special case by setting R = 1X and S = 1Y." *)
-    #[program] Theorem substitution_preserves_α_congruence :
-      forall X Y f g,
-        f ∈ X → Tm Y ->
-        g ∈ X → Tm Y ->
-        (forall x, x ∈ X : Prop -> getm f x `≡_α getm g x) ->
-        forall t u, t ∈ Tm X : Prop -> u ∈ Tm X : Prop -> t ≡_α u -> `⦇f⦈ Y t ≡_α `⦇g⦈ Y u.
-    Proof.
-      intros.
-      pose proof substitution_preserves_α_congruence_identity _ H H0.
-      unshelve eassert (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__Y) getm g x); eauto.
-      { intros.
-        assert (x \in X).
-        { rewrite /fmap_to_Prop mkfmapfE in H6.
-          destruct (x \in X) eqn:?; rewrite Heqb // in H6. }
-        do 2 pose proof H7.
-        destruct H, H0. simpl in *.
-        apply H, (rwP dommP) in H7 as []. apply H0, (rwP dommP) in H8 as [].
-        assert (x0 \in codomm f) by (eapply (rwP codommP); eauto).
-        assert (x1 \in codomm g) by (eapply (rwP codommP); eauto).
-        rewrite H7 H8.
-        rewrite -> Forall_forall in H10, H11.
-        apply In_mem, H10 in H12. apply In_mem, H11 in H13.
-        apply α_equivalent'_with_Tm_set; auto.
-        pose proof H1 x H9. rewrite H7 H8 // in H14. }
-      pose proof H5 H6.
-      assert (`⦇f⦈ Y t \in Tm Y). { eapply lift_substitution_type'; eauto. }
-      assert (`⦇g⦈ Y u \in Tm Y). { eapply lift_substitution_type'; eauto. }
-      pose proof H4. apply α_equivalent'_with_Tm_set with (X := X) in H4; auto.
-      apply H7 in H4. exists Y. apply H4.
-    Qed.
-  End substitution_preserves_α_congruence.
+  (** Page 5: "Clearly, the preservation property arises as a special case by setting R = 1X and S = 1Y." *)
+  #[program] Theorem substitution_preserves_α_congruence :
+    forall X Y f g,
+      f ∈ X → Tm Y ->
+      g ∈ X → Tm Y ->
+      (forall x, x ∈ X : Prop -> getm f x `≡_α getm g x) ->
+      forall t u, t ∈ Tm X : Prop -> u ∈ Tm X : Prop -> t ≡_α u -> `⦇f⦈ Y t ≡_α `⦇g⦈ Y u.
+  Proof.
+    intros.
+    pose proof substitution_preserves_α_congruence_identity _ H H0.
+    unshelve eassert (forall x, (1__X : {fmap 𝒱 → 𝒱}) x x -> getm f x `≡_α^(1__Y) getm g x); eauto.
+    { intros.
+      assert (x \in X).
+      { rewrite /fmap_to_Prop mkfmapfE in H6.
+        destruct (x \in X) eqn:?; rewrite Heqb // in H6. }
+      do 2 pose proof H7.
+      destruct H, H0. simpl in *.
+      apply H, (rwP dommP) in H7 as []. apply H0, (rwP dommP) in H8 as [].
+      assert (x0 \in codomm f) by (eapply (rwP codommP); eauto).
+      assert (x1 \in codomm g) by (eapply (rwP codommP); eauto).
+      rewrite H7 H8.
+      rewrite -> Forall_forall in H10, H11.
+      apply In_mem, H10 in H12. apply In_mem, H11 in H13.
+      apply α_equivalent'_with_Tm_set; auto.
+      pose proof H1 x H9. rewrite H7 H8 // in H14. }
+    pose proof H5 H6.
+    assert (`⦇f⦈ Y t \in Tm Y). { eapply lift_substitution_type'; eauto. }
+    assert (`⦇g⦈ Y u \in Tm Y). { eapply lift_substitution_type'; eauto. }
+    pose proof H4. apply α_equivalent'_with_Tm_set with (X := X) in H4; auto.
+    apply H7 in H4. exists Y. apply H4.
+  Qed.
 
   Lemma α_equivalent_implies_both_in_Tm :
     forall X t u,
@@ -1786,189 +1779,187 @@ Module AlphaFacts (Import M : Alpha).
       simpl in *. rewrite H6 // in H0.
   Qed.
 
-  Section lift_substitution_indistinguishable_substitutions.
-    #[program] Lemma lift_substitution_indistinguishable_substitutions'' :
-      forall R X Y1 Y2 Z1 Z2 f g t W1 W2,
-        f ∈ Z1 → Tm Y1 ->
-        g ∈ Z2 → Tm Y2 ->
-        X ⊆ Z1 ->
-        X ⊆ Z2 ->
-        t ∈ Tm X : Prop ->
-        (forall x, x ∈ X : Prop -> getm f x `≡_α^R getm g x) ->
-        codomm_Tm_set f ⊆ W1 ->
-        codomm_Tm_set g ⊆ W2 ->
-        `⦇f⦈ W1 t ≡_α^R `⦇g⦈ W2 t.
-    Proof.
-      intros.
-      gen_dep R X Y1 Y2 Z1 Z2 f g W1 W2. induction t; intros.
-      - set (z1 := Fresh W1).
-        set (z2 := Fresh W2).
-        set (f' := f[s,variable z1]).
-        set (g' := g[s,variable z2]).
-        set (X' := X ∪ {s}).
-        set (Y1' := Y1 ∪ {z1}).
-        set (Y2' := Y2 ∪ {z2}).
-        set (Z1' := Z1 ∪ {s}).
-        set (Z2' := Z2 ∪ {s}).
-        set (W1' := W1 ∪ {z1}).
-        set (W2' := W2 ∪ {z2}).
-        set (R' := R⦅z1,z2⦆).
-        assert (f' ∈ Z1' → Tm Y1').
-        { apply update_substitution_type.
-          - apply enlarge_codomain with (P__sub := Tm Y1); auto. intros.
-            apply superset_in_Tm with (X__sub := Y1); auto. intros.
-            simpl in *. rewrite in_fsetU H8 //.
-          - rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
-        assert (g' ∈ Z2' → Tm Y2').
-        { apply update_substitution_type.
-          - apply enlarge_codomain with (P__sub := Tm Y2); auto. intros.
-            apply superset_in_Tm with (X__sub := Y2); auto. intros.
-            simpl in *. rewrite in_fsetU H9 //.
-          - rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
-        eassert (forall x, x ∈ X' : Prop -> getm f' x `≡_α^R' getm g' x).
-        { subst R' f' g' X'. intros.
-          rewrite !setmE.
-          destruct (x =P s); subst.
-          { rewrite /= unionmE remmE rem_valmE setmE /= eq_refl //. }
-          destruct H, H0. rewrite -> Forall_forall in f0, f1.
-          apply α_equivalent_update' with (X := W1) (Y := W2); auto; try apply Fresh_correct.
-          - rewrite /= in_fsetU in_fset1 in H9. apply (rwP orP) in H9 as [].
-            + simpl in *. apply H1, i, (rwP dommP) in H as []. rewrite H.
-              assert (x0 \in codomm f) by (eapply (rwP codommP); eauto).
-              simpl in *.
-              apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
-              apply in_codomm_implies_in_Tm_codomm_set. auto.
-            + apply (rwP eqP) in H. subst. contradiction.
-          - rewrite /= in_fsetU in_fset1 in H9. apply (rwP orP) in H9 as [].
-            + simpl in *. apply H2, i0, (rwP dommP) in H as []. rewrite H.
-              assert (x0 \in codomm g) by (eapply (rwP codommP); eauto).
-              apply superset_in_Tm with (X__sub := codomm_Tm_set g); auto.
-              apply in_codomm_implies_in_Tm_codomm_set in H0. auto.
-            + apply (rwP eqP) in H. subst. contradiction.
-          - apply H4.
-            rewrite /= in_fsetU in_fset1 in H9. apply (rwP orP) in H9 as []; auto.
-            apply (rwP eqP) in H. subst. contradiction. }
-        assert (X' ⊆ Z1').
-        { intros.
-          rewrite /= in_fsetU in_fset1.
-          rewrite /= in_fsetU in_fset1 in H10. apply (rwP orP) in H10 as [].
-          - apply H1 in H10. simpl in *. rewrite H10 //.
-          - rewrite H10 orbT //. }
-        assert (X' ⊆ Z2').
-        { intros.
-          rewrite /= in_fsetU in_fset1.
-          rewrite /= in_fsetU in_fset1 in H11. apply (rwP orP) in H11 as [].
-          - apply H2 in H11. simpl in *. rewrite H11 //.
-          - rewrite H11 orbT //. }
-        assert (codomm_Tm_set f' ⊆ W1').
-        { intro_all.
-          apply (rwP codomm_Tm_setP) in H12 as (? & ? & ?).
-          simpl in *. apply (rwP codommP) in H13 as [].
-          rewrite setmE in H13.
-          destruct (x0 =P s); subst.
-          { inverts H13. rewrite /= in_fset1 in H12. apply (rwP eqP) in H12. subst.
-            rewrite in_fsetU in_fset1 eq_refl orbT //. }
-          assert (a \in W1).
-          { apply H5, (rwP codomm_Tm_setP). exists x. split; auto. eapply (rwP codommP); eauto. }
-          rewrite in_fsetU H14 //. }
-        assert (codomm_Tm_set g' ⊆ W2').
-        { intro_all.
-          apply (rwP codomm_Tm_setP) in H13 as (? & ? & ?).
-          simpl in *. apply (rwP codommP) in H14 as [].
-          rewrite setmE in H14.
-          destruct (x0 =P s); subst.
-          { inverts H14. rewrite /= in_fset1 in H13. apply (rwP eqP) in H13. subst.
-            rewrite in_fsetU in_fset1 eq_refl orbT //. }
-          assert (a \in W2).
-          { apply H6, (rwP codomm_Tm_setP). exists x. split; auto. eapply (rwP codommP); eauto. }
-          rewrite /= in_fsetU H15 //. }
-        pose proof IHt W2' W1' g' H13 f' H12 Z2' Z1' Y2' H8 Y1' H7 X' H10 H11 H3 R' H9.
-        rewrite /= H14 //.
-      - simpl in *. apply (rwP andP) in H3 as [].
-        apply IHt1 with (f := f) (g := g) (Y1 := Y1) (Y2 := Y2) (Z1 := Z1) (Z2 := Z2) (R := R) (W1 := W1) (W2 := W2) in H3; auto.
-        apply IHt2 with (f := f) (g := g) (X := X) (Y1 := Y1) (Y2 := Y2) (Z1 := Z1) (Z2 := Z2) (R := R) (W1 := W1) (W2 := W2) in H5; auto.
-        rewrite /= H3 H5 //.
-      - simpl in *.
-        destruct (getm f s) eqn:?.
-        + assert (s \in domm f) by (eapply (rwP dommP); eauto).
-          pose proof H3. apply H2, H0, (rwP dommP) in H3 as []. rewrite -Heqo. apply H4. auto.
-        + apply H1, H, (rwP dommP) in H3 as []. rewrite Heqo // in H3.
-    Qed.
-
-    #[program] Lemma lift_substitution_indistinguishable_substitutions' :
-      forall X Y1 Y2 Z1 Z2 f g t,
-        f ∈ Z1 → Tm Y1 ->
-        g ∈ Z2 → Tm Y2 ->
-        X ⊆ Z1 ->
-        X ⊆ Z2 ->
-        t ∈ Tm X : Prop ->
-        (forall x, x ∈ X : Prop -> getm f x `≡_α getm g x) ->
-        `⦇f⦈ Y1 t ≡_α `⦇g⦈ Y2 t.
-    Proof.
-      intros.
-      set (W := codomm_Tm_set f ∪ codomm_Tm_set g).
-      assert (codomm_Tm_set f ⊆ Y1).
-      { simpl. intros.
-        apply (rwP codomm_Tm_setP) in H5 as (? & ? & ?).
-        destruct H. rewrite -> Forall_forall in H7.
-        apply In_mem, H7 in H6.
-        pose proof in_Tm_iff_superset_free_variables Y1 x. apply H8; auto. }
-      assert (codomm_Tm_set g ⊆ Y2).
-      { simpl. intros.
-        apply (rwP codomm_Tm_setP) in H6 as (? & ? & ?).
-        destruct H0. rewrite -> Forall_forall in H8.
-        apply In_mem, H8 in H7.
-        pose proof in_Tm_iff_superset_free_variables Y2 x. apply H9; auto. }
-      eassert (forall x, x ∈ X : Prop -> getm f x `≡_α^(1__W) getm g x).
-      { intros.
-        apply α_equivalent'_with_Tm_set.
-        - simpl in *. apply H1, H, (rwP dommP) in H7 as []. rewrite H7 /=.
-          assert (x0 \in codomm f) by (apply (rwP codommP); eauto).
-          apply in_codomm_implies_in_Tm_codomm_set in H8.
-          apply superset_in_Tm with (codomm_Tm_set f); auto. intros.
+  #[program] Lemma lift_substitution_indistinguishable_substitutions'' :
+    forall R X Y1 Y2 Z1 Z2 f g t W1 W2,
+      f ∈ Z1 → Tm Y1 ->
+      g ∈ Z2 → Tm Y2 ->
+      X ⊆ Z1 ->
+      X ⊆ Z2 ->
+      t ∈ Tm X : Prop ->
+      (forall x, x ∈ X : Prop -> getm f x `≡_α^R getm g x) ->
+      codomm_Tm_set f ⊆ W1 ->
+      codomm_Tm_set g ⊆ W2 ->
+      `⦇f⦈ W1 t ≡_α^R `⦇g⦈ W2 t.
+  Proof.
+    intros.
+    gen_dep R X Y1 Y2 Z1 Z2 f g W1 W2. induction t; intros.
+    - set (z1 := Fresh W1).
+      set (z2 := Fresh W2).
+      set (f' := f[s,variable z1]).
+      set (g' := g[s,variable z2]).
+      set (X' := X ∪ {s}).
+      set (Y1' := Y1 ∪ {z1}).
+      set (Y2' := Y2 ∪ {z2}).
+      set (Z1' := Z1 ∪ {s}).
+      set (Z2' := Z2 ∪ {s}).
+      set (W1' := W1 ∪ {z1}).
+      set (W2' := W2 ∪ {z2}).
+      set (R' := R⦅z1,z2⦆).
+      assert (f' ∈ Z1' → Tm Y1').
+      { apply update_substitution_type.
+        - apply enlarge_codomain with (P__sub := Tm Y1); auto. intros.
+          apply superset_in_Tm with (X__sub := Y1); auto. intros.
+          simpl in *. rewrite in_fsetU H8 //.
+        - rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
+      assert (g' ∈ Z2' → Tm Y2').
+      { apply update_substitution_type.
+        - apply enlarge_codomain with (P__sub := Tm Y2); auto. intros.
+          apply superset_in_Tm with (X__sub := Y2); auto. intros.
           simpl in *. rewrite in_fsetU H9 //.
-        - simpl in *. apply H2, H0, (rwP dommP) in H7 as []. rewrite H7 /=.
-          assert (x0 \in codomm g) by (apply (rwP codommP); eauto).
-          apply in_codomm_implies_in_Tm_codomm_set in H8.
-          apply superset_in_Tm with (codomm_Tm_set g); auto. intros.
-          simpl in *. rewrite in_fsetU H9 orbT //.
-        - apply H4. auto. }
-      unshelve epose proof @lift_substitution_indistinguishable_substitutions'' (1__W) X Y1 Y2 Z1 Z2 f g t Y1 Y2 H H0 H1 H2 H3 H7 H5 H6.
-      exists W. auto.
-    Qed.
+        - rewrite /= in_fsetU in_fset1 eq_refl orbT //. }
+      eassert (forall x, x ∈ X' : Prop -> getm f' x `≡_α^R' getm g' x).
+      { subst R' f' g' X'. intros.
+        rewrite !setmE.
+        destruct (x =P s); subst.
+        { rewrite /= unionmE remmE rem_valmE setmE /= eq_refl //. }
+        destruct H, H0. rewrite -> Forall_forall in f0, f1.
+        apply α_equivalent_update' with (X := W1) (Y := W2); auto; try apply Fresh_correct.
+        - rewrite /= in_fsetU in_fset1 in H9. apply (rwP orP) in H9 as [].
+          + simpl in *. apply H1, i, (rwP dommP) in H as []. rewrite H.
+            assert (x0 \in codomm f) by (eapply (rwP codommP); eauto).
+            simpl in *.
+            apply superset_in_Tm with (X__sub := codomm_Tm_set f); auto.
+            apply in_codomm_implies_in_Tm_codomm_set. auto.
+          + apply (rwP eqP) in H. subst. contradiction.
+        - rewrite /= in_fsetU in_fset1 in H9. apply (rwP orP) in H9 as [].
+          + simpl in *. apply H2, i0, (rwP dommP) in H as []. rewrite H.
+            assert (x0 \in codomm g) by (eapply (rwP codommP); eauto).
+            apply superset_in_Tm with (X__sub := codomm_Tm_set g); auto.
+            apply in_codomm_implies_in_Tm_codomm_set in H0. auto.
+          + apply (rwP eqP) in H. subst. contradiction.
+        - apply H4.
+          rewrite /= in_fsetU in_fset1 in H9. apply (rwP orP) in H9 as []; auto.
+          apply (rwP eqP) in H. subst. contradiction. }
+      assert (X' ⊆ Z1').
+      { intros.
+        rewrite /= in_fsetU in_fset1.
+        rewrite /= in_fsetU in_fset1 in H10. apply (rwP orP) in H10 as [].
+        - apply H1 in H10. simpl in *. rewrite H10 //.
+        - rewrite H10 orbT //. }
+      assert (X' ⊆ Z2').
+      { intros.
+        rewrite /= in_fsetU in_fset1.
+        rewrite /= in_fsetU in_fset1 in H11. apply (rwP orP) in H11 as [].
+        - apply H2 in H11. simpl in *. rewrite H11 //.
+        - rewrite H11 orbT //. }
+      assert (codomm_Tm_set f' ⊆ W1').
+      { intro_all.
+        apply (rwP codomm_Tm_setP) in H12 as (? & ? & ?).
+        simpl in *. apply (rwP codommP) in H13 as [].
+        rewrite setmE in H13.
+        destruct (x0 =P s); subst.
+        { inverts H13. rewrite /= in_fset1 in H12. apply (rwP eqP) in H12. subst.
+          rewrite in_fsetU in_fset1 eq_refl orbT //. }
+        assert (a \in W1).
+        { apply H5, (rwP codomm_Tm_setP). exists x. split; auto. eapply (rwP codommP); eauto. }
+        rewrite in_fsetU H14 //. }
+      assert (codomm_Tm_set g' ⊆ W2').
+      { intro_all.
+        apply (rwP codomm_Tm_setP) in H13 as (? & ? & ?).
+        simpl in *. apply (rwP codommP) in H14 as [].
+        rewrite setmE in H14.
+        destruct (x0 =P s); subst.
+        { inverts H14. rewrite /= in_fset1 in H13. apply (rwP eqP) in H13. subst.
+          rewrite in_fsetU in_fset1 eq_refl orbT //. }
+        assert (a \in W2).
+        { apply H6, (rwP codomm_Tm_setP). exists x. split; auto. eapply (rwP codommP); eauto. }
+        rewrite /= in_fsetU H15 //. }
+      pose proof IHt W2' W1' g' H13 f' H12 Z2' Z1' Y2' H8 Y1' H7 X' H10 H11 H3 R' H9.
+      rewrite /= H14 //.
+    - simpl in *. apply (rwP andP) in H3 as [].
+      apply IHt1 with (f := f) (g := g) (Y1 := Y1) (Y2 := Y2) (Z1 := Z1) (Z2 := Z2) (R := R) (W1 := W1) (W2 := W2) in H3; auto.
+      apply IHt2 with (f := f) (g := g) (X := X) (Y1 := Y1) (Y2 := Y2) (Z1 := Z1) (Z2 := Z2) (R := R) (W1 := W1) (W2 := W2) in H5; auto.
+      rewrite /= H3 H5 //.
+    - simpl in *.
+      destruct (getm f s) eqn:?.
+      + assert (s \in domm f) by (eapply (rwP dommP); eauto).
+        pose proof H3. apply H2, H0, (rwP dommP) in H3 as []. rewrite -Heqo. apply H4. auto.
+      + apply H1, H, (rwP dommP) in H3 as []. rewrite Heqo // in H3.
+  Qed.
 
-    Lemma codomm_Tm_set_correct :
-      forall X Y f t,
-        f ∈ X → Tm Y ->
-        t ∈ Tm X : Prop ->
-        `⦇f⦈ Y t ≡_α ⦇f⦈ t.
-    Proof.
-      intros.
-      eapply lift_substitution_indistinguishable_substitutions'; eauto; intros.
-      - apply substitution_type_domm in H. rewrite -H. apply substitution_type.
-      - reflexivity.
-    Qed.
+  #[program] Lemma lift_substitution_indistinguishable_substitutions' :
+    forall X Y1 Y2 Z1 Z2 f g t,
+      f ∈ Z1 → Tm Y1 ->
+      g ∈ Z2 → Tm Y2 ->
+      X ⊆ Z1 ->
+      X ⊆ Z2 ->
+      t ∈ Tm X : Prop ->
+      (forall x, x ∈ X : Prop -> getm f x `≡_α getm g x) ->
+      `⦇f⦈ Y1 t ≡_α `⦇g⦈ Y2 t.
+  Proof.
+    intros.
+    set (W := codomm_Tm_set f ∪ codomm_Tm_set g).
+    assert (codomm_Tm_set f ⊆ Y1).
+    { simpl. intros.
+      apply (rwP codomm_Tm_setP) in H5 as (? & ? & ?).
+      destruct H. rewrite -> Forall_forall in H7.
+      apply In_mem, H7 in H6.
+      pose proof in_Tm_iff_superset_free_variables Y1 x. apply H8; auto. }
+    assert (codomm_Tm_set g ⊆ Y2).
+    { simpl. intros.
+      apply (rwP codomm_Tm_setP) in H6 as (? & ? & ?).
+      destruct H0. rewrite -> Forall_forall in H8.
+      apply In_mem, H8 in H7.
+      pose proof in_Tm_iff_superset_free_variables Y2 x. apply H9; auto. }
+    eassert (forall x, x ∈ X : Prop -> getm f x `≡_α^(1__W) getm g x).
+    { intros.
+      apply α_equivalent'_with_Tm_set.
+      - simpl in *. apply H1, H, (rwP dommP) in H7 as []. rewrite H7 /=.
+        assert (x0 \in codomm f) by (apply (rwP codommP); eauto).
+        apply in_codomm_implies_in_Tm_codomm_set in H8.
+        apply superset_in_Tm with (codomm_Tm_set f); auto. intros.
+        simpl in *. rewrite in_fsetU H9 //.
+      - simpl in *. apply H2, H0, (rwP dommP) in H7 as []. rewrite H7 /=.
+        assert (x0 \in codomm g) by (apply (rwP codommP); eauto).
+        apply in_codomm_implies_in_Tm_codomm_set in H8.
+        apply superset_in_Tm with (codomm_Tm_set g); auto. intros.
+        simpl in *. rewrite in_fsetU H9 orbT //.
+      - apply H4. auto. }
+    unshelve epose proof @lift_substitution_indistinguishable_substitutions'' (1__W) X Y1 Y2 Z1 Z2 f g t Y1 Y2 H H0 H1 H2 H3 H7 H5 H6.
+    exists W. auto.
+  Qed.
 
-    #[program] Lemma lift_substitution_indistinguishable_substitutions :
-      forall X Y1 Y2 Z1 Z2 f g t,
-        f ∈ Z1 → Tm Y1 ->
-        g ∈ Z2 → Tm Y2 ->
-        X ⊆ Z1 ->
-        X ⊆ Z2 ->
-        t ∈ Tm X : Prop ->
-        (forall x, x ∈ X : Prop -> getm f x `≡_α getm g x) ->
-        ⦇f⦈ t ≡_α ⦇g⦈ t.
-    Proof.
-      intros.
-      transitivity (`⦇f⦈ Y1 t).
-      - symmetry. eapply codomm_Tm_set_correct; eauto.
+  Lemma codomm_Tm_set_correct :
+    forall X Y f t,
+      f ∈ X → Tm Y ->
+      t ∈ Tm X : Prop ->
+      `⦇f⦈ Y t ≡_α ⦇f⦈ t.
+  Proof.
+    intros.
+    eapply lift_substitution_indistinguishable_substitutions'; eauto; intros.
+    - apply substitution_type_domm in H. rewrite -H. apply substitution_type.
+    - reflexivity.
+  Qed.
+
+  #[program] Lemma lift_substitution_indistinguishable_substitutions :
+    forall X Y1 Y2 Z1 Z2 f g t,
+      f ∈ Z1 → Tm Y1 ->
+      g ∈ Z2 → Tm Y2 ->
+      X ⊆ Z1 ->
+      X ⊆ Z2 ->
+      t ∈ Tm X : Prop ->
+      (forall x, x ∈ X : Prop -> getm f x `≡_α getm g x) ->
+      ⦇f⦈ t ≡_α ⦇g⦈ t.
+  Proof.
+    intros.
+    transitivity (`⦇f⦈ Y1 t).
+    - symmetry. eapply codomm_Tm_set_correct; eauto.
+      apply superset_in_Tm with (X__sub := X); auto.
+    - transitivity (`⦇g⦈ Y2 t).
+      + eapply lift_substitution_indistinguishable_substitutions'; eauto.
+      + eapply codomm_Tm_set_correct; eauto.
         apply superset_in_Tm with (X__sub := X); auto.
-      - transitivity (`⦇g⦈ Y2 t).
-        + eapply lift_substitution_indistinguishable_substitutions'; eauto.
-        + eapply codomm_Tm_set_correct; eauto.
-          apply superset_in_Tm with (X__sub := X); auto.
-    Qed.
-  End lift_substitution_indistinguishable_substitutions.
+  Qed.
 
   Lemma free_variables_lift_substitution_subset' :
     forall X Y f t,
@@ -1981,285 +1972,283 @@ Module AlphaFacts (Import M : Alpha).
     eapply H, in_Tm_iff_superset_free_variables in H0; eauto.
   Qed.
 
-  Section monad_substitution.
-    (** Page 7: "We have to show ⦇f[[z0 = z1]]⦈ ∘ g[[x = z0]](v) ≡α (⦇f⦈ ∘ g)[[x = z1]](v)." *)
-    #[program] Lemma lift_update_substitution_compose_substitution_update :
-      forall X Y Z f g x z0 z1,
-        g ∈ X → Tm Y ->
-        f ∈ Y → Tm Z ->
-        z1 ∉ Z ->
-        z0 ∉ Y ->
-        forall v, v \in (X ∪ {x}) -> getm (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[x,variable z0]) v `≡_α getm ((`⦇f⦈ Z ∘ g)[x,variable z1]) v.
-    Proof.
-      intros. exists (Z ∪ {z1}). intros.
-      rewrite !setmE !mapmE /= !setmE.
-      destruct (v =P x).
-      { subst. rewrite /= setmE eq_refl. apply α_equivalent'_identity.
-        apply superset_in_Tm with (X__sub := fset1 z1).
-        - intros. simpl in *. rewrite in_fsetU H4 orbT //.
-        - apply in_Tm_free_variables. }
-      destruct (getm g v) eqn:?.
-      - destruct lift_substitution_indistinguishable_substitutions' with (X := Y) (Y1 := Z ∪ {z1}) (Y2 := Z) (Z1 := Y ∪ {z0}) (Z2 := Y) (f := f[z0,variable z1]) (g := f) (t := t); eauto.
-        + apply update_substitution_type.
-          * apply enlarge_codomain with (P__sub := Tm Z); eauto. intros.
-            apply superset_in_Tm with (X__sub := Z); auto. intros.
-            simpl in *. rewrite in_fsetU H5 //.
-          * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-        + intros. simpl in *. rewrite in_fsetU H4 //.
-        + destruct H. rewrite -> Forall_forall in H4.
-          assert (t \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H4 in H5. auto.
-        + intros.
-          rewrite setmE.
-          destruct (x0 =P z0); subst.
-          * simpl in *. rewrite H4 // in H2.
-          * reflexivity.
-        + simpl.
-          assert (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) t ≡_α `⦇f⦈ Z t) by (exists x0; auto).
-          apply α_equivalent'_with_free_variables in H5.
-          apply α_equivalent'_supermap with (R__sub := 1__(free_variables (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) t))); auto.
-          intros.
-          rewrite mkfmapfE in H6.
-          destruct (k \in free_variables (`⦇ f [z0, (variable z1)] ⦈ (Z ∪ {z1}) t)) eqn:?; rewrite Heqb // in H6.
-          inverts H6.
-          destruct H. rewrite -> Forall_forall in H6.
-          assert (t \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H6 in H7.
-          apply free_variables_lift_substitution_subset' with (X := Y ∪ {z0}) in Heqb; auto.
-          * simpl in *. rewrite mkfmapfE Heqb //.
-          * apply update_substitution_type.
-            -- apply enlarge_codomain with (P__sub := Tm Z); auto. intros.
-               apply superset_in_Tm with (X__sub := Z); auto. intros.
-               simpl in *. rewrite in_fsetU H9 //.
-            -- apply superset_in_Tm with (X__sub := fset1 z1).
-               ++ intros. simpl in *. rewrite in_fsetU H8 orbT //.
-               ++ apply in_Tm_free_variables.
-          * apply superset_in_Tm with (X__sub := Y); auto. intros.
-            simpl in *. rewrite in_fsetU H8 //.
-      - simpl in *.
-        rewrite in_fsetU in_fset1 in H3. apply (rwP orP) in H3 as [].
-        + apply H, (rwP dommP) in H3 as []. rewrite Heqo // in H3.
-        + apply (rwP eqP) in H3. subst. contradiction.
-    Qed.
+  (** Page 7: "We have to show ⦇f[[z0 = z1]]⦈ ∘ g[[x = z0]](v) ≡α (⦇f⦈ ∘ g)[[x = z1]](v)." *)
+  #[program] Lemma lift_update_substitution_compose_substitution_update :
+    forall X Y Z f g x z0 z1,
+      g ∈ X → Tm Y ->
+      f ∈ Y → Tm Z ->
+      z1 ∉ Z ->
+      z0 ∉ Y ->
+      forall v, v \in (X ∪ {x}) -> getm (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[x,variable z0]) v `≡_α getm ((`⦇f⦈ Z ∘ g)[x,variable z1]) v.
+  Proof.
+    intros. exists (Z ∪ {z1}). intros.
+    rewrite !setmE !mapmE /= !setmE.
+    destruct (v =P x).
+    { subst. rewrite /= setmE eq_refl. apply α_equivalent'_identity.
+      apply superset_in_Tm with (X__sub := fset1 z1).
+      - intros. simpl in *. rewrite in_fsetU H4 orbT //.
+      - apply in_Tm_free_variables. }
+    destruct (getm g v) eqn:?.
+    - destruct lift_substitution_indistinguishable_substitutions' with (X := Y) (Y1 := Z ∪ {z1}) (Y2 := Z) (Z1 := Y ∪ {z0}) (Z2 := Y) (f := f[z0,variable z1]) (g := f) (t := t); eauto.
+      + apply update_substitution_type.
+        * apply enlarge_codomain with (P__sub := Tm Z); eauto. intros.
+          apply superset_in_Tm with (X__sub := Z); auto. intros.
+          simpl in *. rewrite in_fsetU H5 //.
+        * rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+      + intros. simpl in *. rewrite in_fsetU H4 //.
+      + destruct H. rewrite -> Forall_forall in H4.
+        assert (t \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H4 in H5. auto.
+      + intros.
+        rewrite setmE.
+        destruct (x0 =P z0); subst.
+        * simpl in *. rewrite H4 // in H2.
+        * reflexivity.
+      + simpl.
+        assert (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) t ≡_α `⦇f⦈ Z t) by (exists x0; auto).
+        apply α_equivalent'_with_free_variables in H5.
+        apply α_equivalent'_supermap with (R__sub := 1__(free_variables (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) t))); auto.
+        intros.
+        rewrite mkfmapfE in H6.
+        destruct (k \in free_variables (`⦇ f [z0, (variable z1)] ⦈ (Z ∪ {z1}) t)) eqn:?; rewrite Heqb // in H6.
+        inverts H6.
+        destruct H. rewrite -> Forall_forall in H6.
+        assert (t \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H6 in H7.
+        apply free_variables_lift_substitution_subset' with (X := Y ∪ {z0}) in Heqb; auto.
+        * simpl in *. rewrite mkfmapfE Heqb //.
+        * apply update_substitution_type.
+          -- apply enlarge_codomain with (P__sub := Tm Z); auto. intros.
+              apply superset_in_Tm with (X__sub := Z); auto. intros.
+              simpl in *. rewrite in_fsetU H9 //.
+          -- apply superset_in_Tm with (X__sub := fset1 z1).
+              ++ intros. simpl in *. rewrite in_fsetU H8 orbT //.
+              ++ apply in_Tm_free_variables.
+        * apply superset_in_Tm with (X__sub := Y); auto. intros.
+          simpl in *. rewrite in_fsetU H8 //.
+    - simpl in *.
+      rewrite in_fsetU in_fset1 in H3. apply (rwP orP) in H3 as [].
+      + apply H, (rwP dommP) in H3 as []. rewrite Heqo // in H3.
+      + apply (rwP eqP) in H3. subst. contradiction.
+  Qed.
 
-    #[program] Proposition monad_substitution' :
-      forall X Y Z f g,
-        g ∈ X → Tm Y ->
-        f ∈ Y → Tm Z ->
-        (forall t, t ∈ Tm X : Prop -> `⦇η__ X⦈ X t ≡_α t) /\
-        (forall x, x ∈ X : Prop -> getm (`⦇f⦈ X ∘ η__ X) x `≡_α getm f x) /\
-        (forall t, t ∈ Tm X : Prop -> (`⦇f⦈ Z ∘ `⦇g⦈ Y) t ≡_α `⦇`⦇f⦈ Z ∘ g⦈ Z t).
-    Proof.
-      intros.
-      repeat split; intros.
-      - exists X.
-        rewrite -converse_identity.
-        apply lemma7 with (X := X) (Y := X) (f := 1__X); auto.
-        + apply identity_type'.
-        + apply partial_bijection_identity.
-      - simpl in *. rewrite /η__ /= /identity /= !mapmE mkfmapfE H1.
-        apply α_equivalent_reflexive.
-      - gen_dep f g X Y Z. induction t; intros.
-        + set z0 := Fresh Y.
-          set z1 := Fresh Z.
-          assert ((`⦇f⦈ Z ∘ `⦇g⦈ Y) (abstraction s t) = `⦇f⦈ Z (abstraction z0 (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t))) by auto.
-          assert (`⦇f⦈ Z (abstraction z0 (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t)) = abstraction z1 ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t)) by auto.
-          assert (abstraction z1 ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t) ≡_α abstraction z1 (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t)).
-          { unshelve epose proof IHt (Z ∪ {z1}) (Y ∪ {z0}) (X ∪ {s}) H1 (g[s,variable z0]) _ (f[z0,variable z1]) _ as [].
-            - apply update_substitution_type.
-              + apply enlarge_codomain with (P__sub := Tm Y); auto. intros.
-                apply superset_in_Tm with (X__sub := Y); auto. intros. simpl in *. rewrite in_fsetU H5 //.
-              + rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-            - apply update_substitution_type.
-              + apply enlarge_codomain with (P__sub := Tm Z); auto. intros.
-                apply superset_in_Tm with (X__sub := Z); auto. intros. simpl in *. rewrite in_fsetU H5 //.
-              + rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-            - apply α_equivalent'_supermap with (R__super := (1__x)⦅z1,z1⦆) in H4.
-              + exists x. auto.
+  #[program] Proposition monad_substitution' :
+    forall X Y Z f g,
+      g ∈ X → Tm Y ->
+      f ∈ Y → Tm Z ->
+      (forall t, t ∈ Tm X : Prop -> `⦇η__ X⦈ X t ≡_α t) /\
+      (forall x, x ∈ X : Prop -> getm (`⦇f⦈ X ∘ η__ X) x `≡_α getm f x) /\
+      (forall t, t ∈ Tm X : Prop -> (`⦇f⦈ Z ∘ `⦇g⦈ Y) t ≡_α `⦇`⦇f⦈ Z ∘ g⦈ Z t).
+  Proof.
+    intros.
+    repeat split; intros.
+    - exists X.
+      rewrite -converse_identity.
+      apply lemma7 with (X := X) (Y := X) (f := 1__X); auto.
+      + apply identity_type'.
+      + apply partial_bijection_identity.
+    - simpl in *. rewrite /η__ /= /identity /= !mapmE mkfmapfE H1.
+      apply α_equivalent_reflexive.
+    - gen_dep f g X Y Z. induction t; intros.
+      + set z0 := Fresh Y.
+        set z1 := Fresh Z.
+        assert ((`⦇f⦈ Z ∘ `⦇g⦈ Y) (abstraction s t) = `⦇f⦈ Z (abstraction z0 (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t))) by auto.
+        assert (`⦇f⦈ Z (abstraction z0 (`⦇g[s,variable z0]⦈ (Y ∪ {z0}) t)) = abstraction z1 ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t)) by auto.
+        assert (abstraction z1 ((`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ `⦇g[s,variable z0]⦈ (Y ∪ {z0})) t) ≡_α abstraction z1 (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t)).
+        { unshelve epose proof IHt (Z ∪ {z1}) (Y ∪ {z0}) (X ∪ {s}) H1 (g[s,variable z0]) _ (f[z0,variable z1]) _ as [].
+          - apply update_substitution_type.
+            + apply enlarge_codomain with (P__sub := Tm Y); auto. intros.
+              apply superset_in_Tm with (X__sub := Y); auto. intros. simpl in *. rewrite in_fsetU H5 //.
+            + rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+          - apply update_substitution_type.
+            + apply enlarge_codomain with (P__sub := Tm Z); auto. intros.
+              apply superset_in_Tm with (X__sub := Z); auto. intros. simpl in *. rewrite in_fsetU H5 //.
+            + rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+          - apply α_equivalent'_supermap with (R__super := (1__x)⦅z1,z1⦆) in H4.
+            + exists x. auto.
+            + intros.
+              rewrite mkfmapfE in H5.
+              rewrite unionmE remmE rem_valmE setmE /= mkfmapfE.
+              destruct (k \in x) eqn:?; rewrite Heqb in H5; inverts H5.
+              destruct (v =P z1); subst; auto.
+              apply not_eq_sym, (introF eqP) in n. rewrite Heqb n //. }
+        assert (abstraction z1 (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t) ≡_α abstraction z1 (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t)).
+        { set (f' := mapm (`⦇f[z0,variable z1]⦈ (Z ∪ {z1})) (g[s,variable z0])).
+          set (g' := (mapm (`⦇f⦈ Z) g)[s,variable z1]).
+          assert (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∈ Tm (Y ∪ {z0}) → Tm (Z ∪ {z1})).
+          { apply lift_substitution_type', update_substitution_type.
+            - apply enlarge_codomain with (P__sub := Tm Z); auto. intros.
+              apply superset_in_Tm with (X__sub := Z); auto. intros.
+              simpl in *. rewrite in_fsetU H6 //.
+            - apply superset_in_Tm with (X__sub := fset1 z1).
               + intros.
-                rewrite mkfmapfE in H5.
-                rewrite unionmE remmE rem_valmE setmE /= mkfmapfE.
-                destruct (k \in x) eqn:?; rewrite Heqb in H5; inverts H5.
-                destruct (v =P z1); subst; auto.
-                apply not_eq_sym, (introF eqP) in n. rewrite Heqb n //. }
-          assert (abstraction z1 (`⦇`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∘ g[s,variable z0]⦈ (Z ∪ {z1}) t) ≡_α abstraction z1 (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t)).
-          { set (f' := mapm (`⦇f[z0,variable z1]⦈ (Z ∪ {z1})) (g[s,variable z0])).
-            set (g' := (mapm (`⦇f⦈ Z) g)[s,variable z1]).
-            assert (`⦇f[z0,variable z1]⦈ (Z ∪ {z1}) ∈ Tm (Y ∪ {z0}) → Tm (Z ∪ {z1})).
-            { apply lift_substitution_type', update_substitution_type.
-              - apply enlarge_codomain with (P__sub := Tm Z); auto. intros.
-                apply superset_in_Tm with (X__sub := Z); auto. intros.
-                simpl in *. rewrite in_fsetU H6 //.
-              - apply superset_in_Tm with (X__sub := fset1 z1).
-                + intros.
-                  rewrite /= in_fset1 in H5. apply (rwP eqP) in H5. subst.
-                  rewrite /= in_fsetU in_fset1 eq_refl orbT //.
-                + apply in_Tm_free_variables. }
-            assert (f' ∈ (X ∪ {s}) → Tm (Z ∪ {z1})).
-            { repeat (split; intros).
-              - simpl in *. apply (rwP dommP) in H6 as [].
-                rewrite mapmE setmE in H6.
-                destruct (a =P s); subst.
-                + rewrite in_fsetU in_fset1 eq_refl orbT //.
-                + destruct (getm g a) eqn:?; inverts H6.
-                  assert (a \in domm g) by (eapply (rwP dommP); eauto). apply H in H6. rewrite in_fsetU H6 //.
-              - apply (rwP dommP).
-                rewrite mapmE setmE.
-                destruct (a =P s); subst.
-                + rewrite /= setmE eq_refl. eauto.
-                + rewrite /= in_fsetU in_fset1 in H6. apply (rwP orP) in H6 as [].
-                  * simpl in *. apply H, (rwP dommP) in H6 as []. rewrite H6 /=. eauto.
-                  * apply (rwP eqP) in H6. subst. contradiction.
-              - rewrite -> Forall_forall. intros. apply In_mem, (rwP codommP) in H6 as [].
-                rewrite mapmE setmE in H6.
-                destruct (x0 =P s); subst.
-                + rewrite /= setmE eq_refl in H6. inverts H6.
-                  apply superset_in_Tm with (X__sub := fset1 z1).
-                  * intros. simpl in *. rewrite in_fsetU H6 orbT //.
-                  * apply in_Tm_free_variables.
-                + destruct (getm g x0) eqn:?; inverts H6.
-                  destruct H. rewrite -> Forall_forall in H6.
-                  assert (t0 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H6 in H7.
-                  apply superset_in_Tm with (X__super := Y ∪ {z0}) in H7; auto. intros.
-                  simpl in *. rewrite in_fsetU H8 //. }
-            assert (g' ∈ (X ∪ {s}) → Tm (Z ∪ {z1})).
-            { repeat (split; intros).
-              - simpl in *. apply (rwP dommP) in H7 as [].
-                rewrite setmE mapmE in H7.
-                destruct (a =P s); subst.
-                { inverts H7. rewrite in_fsetU in_fset1 eq_refl orbT //. }
-                destruct (getm g a) eqn:?; inverts H7.
-                assert (a \in domm g) by (eapply (rwP dommP); eauto). apply H in H7. rewrite in_fsetU H7 //.
-              - apply (rwP dommP).
-                rewrite setmE mapmE.
-                destruct (a =P s); subst; eauto.
-                rewrite /= in_fsetU in_fset1 in H7. apply (rwP orP) in H7 as [].
-                + simpl in *. apply H, (rwP dommP) in H7 as []. rewrite H7 /=. eauto.
-                + apply (rwP eqP) in H7. subst. contradiction.
-              - rewrite -> Forall_forall. intros. apply In_mem, (rwP codommP) in H7 as [].
-                rewrite setmE mapmE in H7.
-                destruct (x0 =P s); subst.
-                + inverts H7.
-                  apply superset_in_Tm with (X__sub := fset1 z1).
-                  * intros. simpl in *. rewrite in_fsetU H7 orbT //.
-                  * apply in_Tm_free_variables.
-                + destruct (getm g x0) eqn:?; inverts H7.
-                  destruct H. rewrite -> Forall_forall in H7.
-                  assert (t0 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H7 in H8.
-                  apply superset_in_Tm with (X__sub := Z).
-                  * intros. simpl in *. rewrite in_fsetU H9 //.
-                  * eapply lift_substitution_type'; eauto. }
-            pose proof (@lift_update_substitution_compose_substitution_update X Y Z f g s z0 z1 H H0 ltac:(apply Fresh_correct) ltac:(apply Fresh_correct)).
-            destruct (@lift_substitution_indistinguishable_substitutions' (X ∪ {s}) _ _ _ _ f' g' t H6 H7 ltac:(auto) ltac:(auto) H1 H8).
-            exists x. rewrite /= update_identity.
-            destruct (z1 ∈ x) eqn:?.
-            - replace (x ∪ {z1}) with x; auto.
-              apply eq_fset. intro_all.
-              rewrite in_fsetU in_fset1 orbC.
-              destruct (x0 =P z1); subst; auto.
-            - apply α_equivalent'_supermap with (R__sub := 1__x); auto. intros.
-              rewrite mkfmapfE in H10.
-              rewrite mkfmapfE in_fsetU in_fset1.
-              destruct (k \in x) eqn:?; rewrite Heqb // in H10. }
-          assert (abstraction z1 (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t) = `⦇`⦇f⦈ Z ∘ g⦈ Z (abstraction s t)) by auto.
-          rewrite H2 H3.
-          etransitivity; eauto.
-        + simpl in *. apply (rwP andP) in H1 as [].
-          eapply IHt1 in H1 as []; eauto.
-          eapply IHt2 in H2 as []; eauto.
-          exists (x ∪ x0).
-          simpl. rewrite <- (rwP andP). split.
-          * apply α_equivalent'_supermap with (R__sub := 1__x); auto. intros.
-            rewrite mkfmapfE in H3.
-            rewrite mkfmapfE in_fsetU.
-            destruct (k \in x) eqn:?; rewrite Heqb in H3; inverts H3. auto.
-          * apply α_equivalent'_supermap with (R__sub := 1__x0); auto. intros.
-            rewrite mkfmapfE in H3.
-            rewrite mkfmapfE in_fsetU.
-            destruct (k \in x0) eqn:?; rewrite Heqb in H3; inverts H3. rewrite orbT //.
-        + simpl in *. rewrite mapmE. eapply H, (rwP dommP) in H1 as []. rewrite H1. reflexivity.
-    Qed.
+                rewrite /= in_fset1 in H5. apply (rwP eqP) in H5. subst.
+                rewrite /= in_fsetU in_fset1 eq_refl orbT //.
+              + apply in_Tm_free_variables. }
+          assert (f' ∈ (X ∪ {s}) → Tm (Z ∪ {z1})).
+          { repeat (split; intros).
+            - simpl in *. apply (rwP dommP) in H6 as [].
+              rewrite mapmE setmE in H6.
+              destruct (a =P s); subst.
+              + rewrite in_fsetU in_fset1 eq_refl orbT //.
+              + destruct (getm g a) eqn:?; inverts H6.
+                assert (a \in domm g) by (eapply (rwP dommP); eauto). apply H in H6. rewrite in_fsetU H6 //.
+            - apply (rwP dommP).
+              rewrite mapmE setmE.
+              destruct (a =P s); subst.
+              + rewrite /= setmE eq_refl. eauto.
+              + rewrite /= in_fsetU in_fset1 in H6. apply (rwP orP) in H6 as [].
+                * simpl in *. apply H, (rwP dommP) in H6 as []. rewrite H6 /=. eauto.
+                * apply (rwP eqP) in H6. subst. contradiction.
+            - rewrite -> Forall_forall. intros. apply In_mem, (rwP codommP) in H6 as [].
+              rewrite mapmE setmE in H6.
+              destruct (x0 =P s); subst.
+              + rewrite /= setmE eq_refl in H6. inverts H6.
+                apply superset_in_Tm with (X__sub := fset1 z1).
+                * intros. simpl in *. rewrite in_fsetU H6 orbT //.
+                * apply in_Tm_free_variables.
+              + destruct (getm g x0) eqn:?; inverts H6.
+                destruct H. rewrite -> Forall_forall in H6.
+                assert (t0 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H6 in H7.
+                apply superset_in_Tm with (X__super := Y ∪ {z0}) in H7; auto. intros.
+                simpl in *. rewrite in_fsetU H8 //. }
+          assert (g' ∈ (X ∪ {s}) → Tm (Z ∪ {z1})).
+          { repeat (split; intros).
+            - simpl in *. apply (rwP dommP) in H7 as [].
+              rewrite setmE mapmE in H7.
+              destruct (a =P s); subst.
+              { inverts H7. rewrite in_fsetU in_fset1 eq_refl orbT //. }
+              destruct (getm g a) eqn:?; inverts H7.
+              assert (a \in domm g) by (eapply (rwP dommP); eauto). apply H in H7. rewrite in_fsetU H7 //.
+            - apply (rwP dommP).
+              rewrite setmE mapmE.
+              destruct (a =P s); subst; eauto.
+              rewrite /= in_fsetU in_fset1 in H7. apply (rwP orP) in H7 as [].
+              + simpl in *. apply H, (rwP dommP) in H7 as []. rewrite H7 /=. eauto.
+              + apply (rwP eqP) in H7. subst. contradiction.
+            - rewrite -> Forall_forall. intros. apply In_mem, (rwP codommP) in H7 as [].
+              rewrite setmE mapmE in H7.
+              destruct (x0 =P s); subst.
+              + inverts H7.
+                apply superset_in_Tm with (X__sub := fset1 z1).
+                * intros. simpl in *. rewrite in_fsetU H7 orbT //.
+                * apply in_Tm_free_variables.
+              + destruct (getm g x0) eqn:?; inverts H7.
+                destruct H. rewrite -> Forall_forall in H7.
+                assert (t0 \in codomm g) by (eapply (rwP codommP); eauto). apply In_mem, H7 in H8.
+                apply superset_in_Tm with (X__sub := Z).
+                * intros. simpl in *. rewrite in_fsetU H9 //.
+                * eapply lift_substitution_type'; eauto. }
+          pose proof (@lift_update_substitution_compose_substitution_update X Y Z f g s z0 z1 H H0 ltac:(apply Fresh_correct) ltac:(apply Fresh_correct)).
+          destruct (@lift_substitution_indistinguishable_substitutions' (X ∪ {s}) _ _ _ _ f' g' t H6 H7 ltac:(auto) ltac:(auto) H1 H8).
+          exists x. rewrite /= update_identity.
+          destruct (z1 ∈ x) eqn:?.
+          - replace (x ∪ {z1}) with x; auto.
+            apply eq_fset. intro_all.
+            rewrite in_fsetU in_fset1 orbC.
+            destruct (x0 =P z1); subst; auto.
+          - apply α_equivalent'_supermap with (R__sub := 1__x); auto. intros.
+            rewrite mkfmapfE in H10.
+            rewrite mkfmapfE in_fsetU in_fset1.
+            destruct (k \in x) eqn:?; rewrite Heqb // in H10. }
+        assert (abstraction z1 (`⦇(`⦇f⦈ Z ∘ g)[s,variable z1]⦈ (Z ∪ {z1}) t) = `⦇`⦇f⦈ Z ∘ g⦈ Z (abstraction s t)) by auto.
+        rewrite H2 H3.
+        etransitivity; eauto.
+      + simpl in *. apply (rwP andP) in H1 as [].
+        eapply IHt1 in H1 as []; eauto.
+        eapply IHt2 in H2 as []; eauto.
+        exists (x ∪ x0).
+        simpl. rewrite <- (rwP andP). split.
+        * apply α_equivalent'_supermap with (R__sub := 1__x); auto. intros.
+          rewrite mkfmapfE in H3.
+          rewrite mkfmapfE in_fsetU.
+          destruct (k \in x) eqn:?; rewrite Heqb in H3; inverts H3. auto.
+        * apply α_equivalent'_supermap with (R__sub := 1__x0); auto. intros.
+          rewrite mkfmapfE in H3.
+          rewrite mkfmapfE in_fsetU.
+          destruct (k \in x0) eqn:?; rewrite Heqb in H3; inverts H3. rewrite orbT //.
+      + simpl in *. rewrite mapmE. eapply H, (rwP dommP) in H1 as []. rewrite H1. reflexivity.
+  Qed.
 
-    Lemma function_fmap_compose_has_co_domain :
-      forall (f : term -> term) g X Y Z,
-        f ∈ Tm Y → Tm Z ->
-        g ∈ X → Tm Y ->
-        (f ∘ g) ∈ X → Tm Z.
-    Proof.
-      intros.
-      destruct H0. rewrite -> Forall_forall in H1.
-      repeat split; intros; simpl in *.
-      - apply (rwP dommP) in H2 as [].
-        rewrite mapmE in H2.
-        destruct (getm g a) eqn:?; inverts H2.
-        assert (a \in domm g) by (apply (rwP dommP); eauto).
-        apply H0 in H2. auto.
-      - apply (rwP dommP).
-        apply H0, (rwP dommP) in H2 as [].
-        exists (f x). rewrite mapmE H2 //.
-      - rewrite -> Forall_forall. intros.
-        apply In_mem, (rwP codommP) in H2 as [].
-        rewrite mapmE in H2.
-        destruct (getm g x0) eqn:?; inverts H2.
-        assert (t \in codomm g) by (apply (rwP codommP); eauto).
-        apply In_mem, H1 in H2.
-        apply H in H2. auto.
-    Qed.
+  Lemma function_fmap_compose_has_co_domain :
+    forall (f : term -> term) g X Y Z,
+      f ∈ Tm Y → Tm Z ->
+      g ∈ X → Tm Y ->
+      (f ∘ g) ∈ X → Tm Z.
+  Proof.
+    intros.
+    destruct H0. rewrite -> Forall_forall in H1.
+    repeat split; intros; simpl in *.
+    - apply (rwP dommP) in H2 as [].
+      rewrite mapmE in H2.
+      destruct (getm g a) eqn:?; inverts H2.
+      assert (a \in domm g) by (apply (rwP dommP); eauto).
+      apply H0 in H2. auto.
+    - apply (rwP dommP).
+      apply H0, (rwP dommP) in H2 as [].
+      exists (f x). rewrite mapmE H2 //.
+    - rewrite -> Forall_forall. intros.
+      apply In_mem, (rwP codommP) in H2 as [].
+      rewrite mapmE in H2.
+      destruct (getm g x0) eqn:?; inverts H2.
+      assert (t \in codomm g) by (apply (rwP codommP); eauto).
+      apply In_mem, H1 in H2.
+      apply H in H2. auto.
+  Qed.
 
-    (** Page 6: Proposition 6. *)
-    #[program] Proposition monad_substitution :
-      forall X Y Z f g,
-        g ∈ X → Tm Y ->
-        f ∈ Y → Tm Z ->
-        (forall t, t ∈ Tm X : Prop -> ⦇η__ X⦈ t ≡_α t) /\
-        (forall x, x ∈ X : Prop -> getm (⦇f⦈ ∘ η__ X) x `≡_α getm f x) /\
-        (forall t, t ∈ Tm X : Prop -> (⦇f⦈ ∘ ⦇g⦈) t ≡_α ⦇⦇f⦈ ∘ g⦈ t).
-    Proof.
-      intros.
-      repeat split; intros.
-      - transitivity (`⦇η__ X⦈ X t).
-        + symmetry. eapply codomm_Tm_set_correct; eauto. apply η_type.
-        + eapply monad_substitution'; eauto.
-      - transitivity (odflt (variable x) (getm (`⦇f⦈ X ∘ η__ X) x)).
-        + simpl in *. rewrite !mapmE mkfmapfE !H1 /=. reflexivity.
-        + eapply monad_substitution'; eauto.
-      - transitivity ((`⦇f⦈ Z ∘ ⦇g⦈) t : term).
-        { symmetry. eapply codomm_Tm_set_correct; eauto.
-          apply superset_in_Tm with (X__sub := codomm_Tm_set g).
-          * intros. simpl in *.
-            apply (rwP codomm_Tm_setP) in H2 as (? & ? & ?).
-            destruct H. rewrite -> Forall_forall in H4.
-            simpl in *. apply In_mem, H4 in H3.
-            destruct (in_Tm_iff_superset_free_variables Y x).
-            eapply H6 with a in H3; auto.
-          * eapply lift_substitution_type'; eauto.
-            replace X with (domm g); cycle 1.
-            { eapply substitution_type_domm; eauto. }
-            apply substitution_type. }
-        transitivity ((`⦇f⦈ Z ∘ `⦇g⦈ Y) t : term).
-        { eapply substitution_respects_α_equivalence; eauto.
-          - eapply lift_substitution_type; eauto.
-          - eapply lift_substitution_type'; eauto.
-          - symmetry. eapply codomm_Tm_set_correct; eauto. }
-        transitivity (`⦇`⦇f⦈ Z ∘ g⦈ Z t).
-        { eapply monad_substitution'; eauto. }
-        transitivity (`⦇⦇f⦈ ∘ g⦈ Z t).
-        { eapply lift_substitution_indistinguishable_substitutions'; eauto.
-          - eapply function_fmap_compose_has_co_domain; eauto.
-            eapply lift_substitution_type'; auto.
-          - eapply function_fmap_compose_has_co_domain; eauto.
-            eapply lift_substitution_type; auto.
-          - intros.
-            rewrite /= !mapmE.
-            simpl in H, H2. apply H, (rwP dommP) in H2 as [].
-            rewrite H2.
-            eapply codomm_Tm_set_correct; eauto.
-            destruct H. rewrite -> Forall_forall in H3.
-            assert (x0 \in codomm g) by (apply (rwP codommP); eauto).
-            apply In_mem, H3 in H4. auto. }
-        eapply codomm_Tm_set_correct; eauto.
-        eapply function_fmap_compose_has_co_domain; eauto.
-        apply lift_substitution_type; auto.
-    Qed.
-  End monad_substitution.
+  (** Page 6: Proposition 6. *)
+  #[program] Proposition monad_substitution :
+    forall X Y Z f g,
+      g ∈ X → Tm Y ->
+      f ∈ Y → Tm Z ->
+      (forall t, t ∈ Tm X : Prop -> ⦇η__ X⦈ t ≡_α t) /\
+      (forall x, x ∈ X : Prop -> getm (⦇f⦈ ∘ η__ X) x `≡_α getm f x) /\
+      (forall t, t ∈ Tm X : Prop -> (⦇f⦈ ∘ ⦇g⦈) t ≡_α ⦇⦇f⦈ ∘ g⦈ t).
+  Proof.
+    intros.
+    repeat split; intros.
+    - transitivity (`⦇η__ X⦈ X t).
+      + symmetry. eapply codomm_Tm_set_correct; eauto. apply η_type.
+      + eapply monad_substitution'; eauto.
+    - transitivity (odflt (variable x) (getm (`⦇f⦈ X ∘ η__ X) x)).
+      + simpl in *. rewrite !mapmE mkfmapfE !H1 /=. reflexivity.
+      + eapply monad_substitution'; eauto.
+    - transitivity ((`⦇f⦈ Z ∘ ⦇g⦈) t : term).
+      { symmetry. eapply codomm_Tm_set_correct; eauto.
+        apply superset_in_Tm with (X__sub := codomm_Tm_set g).
+        * intros. simpl in *.
+          apply (rwP codomm_Tm_setP) in H2 as (? & ? & ?).
+          destruct H. rewrite -> Forall_forall in H4.
+          simpl in *. apply In_mem, H4 in H3.
+          destruct (in_Tm_iff_superset_free_variables Y x).
+          eapply H6 with a in H3; auto.
+        * eapply lift_substitution_type'; eauto.
+          replace X with (domm g); cycle 1.
+          { eapply substitution_type_domm; eauto. }
+          apply substitution_type. }
+      transitivity ((`⦇f⦈ Z ∘ `⦇g⦈ Y) t : term).
+      { eapply substitution_respects_α_equivalence; eauto.
+        - eapply lift_substitution_type; eauto.
+        - eapply lift_substitution_type'; eauto.
+        - symmetry. eapply codomm_Tm_set_correct; eauto. }
+      transitivity (`⦇`⦇f⦈ Z ∘ g⦈ Z t).
+      { eapply monad_substitution'; eauto. }
+      transitivity (`⦇⦇f⦈ ∘ g⦈ Z t).
+      { eapply lift_substitution_indistinguishable_substitutions'; eauto.
+        - eapply function_fmap_compose_has_co_domain; eauto.
+          eapply lift_substitution_type'; auto.
+        - eapply function_fmap_compose_has_co_domain; eauto.
+          eapply lift_substitution_type; auto.
+        - intros.
+          rewrite /= !mapmE.
+          simpl in H, H2. apply H, (rwP dommP) in H2 as [].
+          rewrite H2.
+          eapply codomm_Tm_set_correct; eauto.
+          destruct H. rewrite -> Forall_forall in H3.
+          assert (x0 \in codomm g) by (apply (rwP codommP); eauto).
+          apply In_mem, H3 in H4. auto. }
+      eapply codomm_Tm_set_correct; eauto.
+      eapply function_fmap_compose_has_co_domain; eauto.
+      apply lift_substitution_type; auto.
+  Qed.
 
   Notation "t '[' x '=' u ']'" := (⦇(1__(free_variables t))[x,u]⦈ t) (at level 10, x at next level, u at next level).
 
