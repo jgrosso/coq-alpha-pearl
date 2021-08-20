@@ -37,17 +37,17 @@ Proof.
   repeat split; try apply negbT, Bool.not_true_iff_false; intros_all;
   try apply α_equivalent_iff_α_equivalent'_free_variables;
   simpl in *.
-  - apply (rwP (getmP _ _ _)). rewrite unionmE remmE rem_valmE //.
+  - apply (rwP getmP). rewrite unionmE remmE rem_valmE //.
   - repeat rewrite <- (rwP andP). repeat split;
-    apply (rwP (getmP _ _ _)); repeat rewrite unionmE remmE rem_valmE //=.
+    apply (rwP getmP); repeat rewrite unionmE remmE rem_valmE //=.
   - repeat rewrite <- (rwP andP). repeat split;
-    apply (rwP (getmP _ _ _)); repeat rewrite unionmE remmE rem_valmE //=.
+    apply (rwP getmP); repeat rewrite unionmE remmE rem_valmE //=.
     rewrite mkfmapfE !in_fsetD !in_fsetU //.
   - apply (rwP andP) in H as [].
-    apply (rwP (getmP _ _ _)) in H0.
+    apply (rwP getmP) in H0.
     rewrite unionmE remmE rem_valmE /= mkfmapfE !in_fsetD !in_fsetU // in H0.
   - apply (rwP andP) in H as [].
-    apply (rwP (getmP _ _ _)) in H0.
+    apply (rwP getmP) in H0.
     repeat rewrite unionmE remmE rem_valmE // in H0.
-  - apply (rwP (getmP _ _ _)). rewrite unionmE remmE rem_valmE //.
+  - apply (rwP getmP). rewrite unionmE remmE rem_valmE //.
 Qed.

@@ -26,8 +26,7 @@ Notation "∑_( x ∈ s ) y" :=
   (\sum_(x <- s) y)
     (at level 41, x, s at level 50, y at level 200) : fset_scope.
 
-(** This conflicts with [Membership.⊆], but it's convenient in this file to have it [fset]-specific. *)
-#[local] Infix "⊆" := fsubset (at level 40) : fset_scope.
+Infix "⊆" := fsubset (at level 40) : fset_scope.
 
 (** Coercions can't be overridden, so we'll define a wrapper type (and some new, yet similar-looking)
     notation to convince Coq to use this coercion instead. *)
@@ -39,6 +38,12 @@ Definition fmap_to_Prop (A : ordType) (B : Type) (R : {fmap A → B}) (k : A) (v
   getm R k = Some v.
 
 Coercion fmap_to_Prop : fmap_of' >-> Funclass.
+
+Arguments getmP {_ _ _ _ _}.
+
+Arguments injectivemP {_ _ _}.
+
+Arguments pimfsetP {_ _ _ _ _}.
 
 Lemma fset_uniq :
   forall (A : ordType) (s : {fset A}),
@@ -529,7 +534,7 @@ Lemma domm_codomm_invm :
     domm m = codomm (invm m).
 Proof.
   intros.
-  apply (rwP (injectivemP _)) in H.
+  apply (rwP injectivemP) in H.
   apply eq_fset. intros_all.
   destruct (x ∈ domm m) eqn:?.
   - apply (rwP dommP) in Heqb as [].
@@ -550,7 +555,7 @@ Lemma codomm_domm_invm :
     codomm m = domm (invm m).
 Proof.
   intros.
-  apply (rwP (injectivemP _)) in H.
+  apply (rwP injectivemP) in H.
   apply eq_fset. intros_all.
   destruct (x ∈ codomm m) eqn:?.
   - apply (rwP dommP) in Heqb as [].
