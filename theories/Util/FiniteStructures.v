@@ -1,4 +1,4 @@
-From AlphaPearl Require Import Util.PlfTactics.
+From AlphaPearl Require Import Util.Seq Util.PlfTactics.
 From Coq Require Import Bool List ssreflect.
 Import ListNotations.
 From mathcomp Require Import bigop eqtype seq ssrbool ssrnat.
@@ -11,11 +11,6 @@ Unset Printing Implicit Defensive.
 
 #[local] Open Scope fset_scope.
 #[local] Open Scope list_scope.
-
-(** This conflicts with [Membership.∈], but it's convenient in this file to have it [fset]-specific. *)
-#[local] Notation "x '∈' y" := (x \in y) (at level 70) : fset_scope.
-
-Notation "x '∉' y" := (x \notin y) (at level 70) : fset_scope.
 
 Notation "'∅'" := fset0 : fset_scope.
 
@@ -616,4 +611,33 @@ Proof.
   rewrite in_fsetU in H0. apply (rwP orP) in H0 as [].
   - apply H in H0. rewrite H0 //.
   - rewrite H0 orbT //.
+Qed.
+
+Lemma remm_mapm :
+  forall (A : ordType) (B : Type) (f : B -> B) (m : {fmap A → B}) (x : A),
+    remm (mapm f m) x = mapm f (remm m x).
+Proof.
+  intros.
+  apply eq_fmap. intros_all.
+  rewrite remmE !mapmE remmE.
+  destruct (x0 =P x); subst; auto.
+Qed.
+
+Lemma codomm_mapm :
+  forall (A B : ordType) (f : B -> B) (m : {fmap A → B}),
+    codomm (mapm f m) = f @: codomm m.
+Proof.
+  intros.
+  apply eq_fset. intros_all.
+  apply Bool.eq_iff_eq_true. split; intros.
+  - apply (rwP codommP) in H as [].
+    rewrite mapmE in H.
+    destruct (getm m x0) eqn:?; inverts H.
+    apply (rwP imfsetP). exists s; auto.
+    apply (rwP codommP). eauto.
+  - apply (rwP imfsetP) in H as [].
+    apply (rwP codommP) in H as [].
+    subst.
+    apply (rwP codommP).
+    exists x1. rewrite mapmE H //.
 Qed.
