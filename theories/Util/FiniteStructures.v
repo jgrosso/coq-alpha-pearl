@@ -1,4 +1,4 @@
-From AlphaPearl Require Import Util.Tactics.
+From AlphaPearl Require Import Util.PlfTactics.
 From Coq Require Import Bool List ssreflect.
 Import ListNotations.
 From mathcomp Require Import bigop eqtype seq ssrbool ssrnat.
@@ -361,7 +361,7 @@ Lemma rem_fsetm_as_fsetD :
     domm (m ∖ s) = domm m :\: s.
 Proof.
   intros.
-  apply eq_fset. intro_all.
+  apply eq_fset. intros_all.
   rewrite /rem_fsetm in_fsetD mem_domm filtermE.
   destruct (m x) eqn:?.
   - simpl.
@@ -480,7 +480,7 @@ Lemma fsetI0_fdisjoint :
 Proof.
   intros.
   apply (rwP fdisjointP). intros.
-  apply Bool.negb_true_iff, Bool.not_true_iff_false. intro_all.
+  apply Bool.negb_true_iff, Bool.not_true_iff_false. intros_all.
   assert (x ∈ s1 ∩ s2). { rewrite -(rwP (fsetIP _ s1 s2)) //. }
   rewrite H in_fset0 // in H2.
 Qed.
@@ -490,7 +490,7 @@ Lemma rem_fsetmI0 :
     m ∖ ∅ = m.
 Proof.
   intros.
-  apply eq_fmap. intro_all.
+  apply eq_fmap. intros_all.
   rewrite rem_fsetmE //.
 Qed.
 
@@ -517,14 +517,14 @@ Lemma eq_fmap' :
     m1 = m2.
 Proof.
   intros.
-  apply eq_fmap. intro_all.
+  apply eq_fmap. intros_all.
   destruct (m1 x) eqn:?.
   - apply H in Heqo. auto.
   - cut (forall y : B, m2 x <> Some y).
-    { intro_all.
+    { intros_all.
       destruct (m2 x) eqn:?; auto.
       exfalso. apply (H0 s). auto. }
-    intro_all.
+    intros_all.
     apply H in H0. rewrite H0 // in Heqo.
 Qed.
 
@@ -535,7 +535,7 @@ Lemma domm_codomm_invm :
 Proof.
   intros.
   apply (rwP (injectivemP _)) in H.
-  apply eq_fset. intro_all.
+  apply eq_fset. intros_all.
   destruct (x ∈ domm m) eqn:?.
   - apply (rwP dommP) in Heqb as [].
     symmetry. apply (rwP codommP).
@@ -543,8 +543,8 @@ Proof.
     apply getm_inv.
     rewrite invmK //.
   - apply Bool.negb_true_iff, (rwP dommPn) in Heqb.
-    symmetry. apply Bool.negb_true_iff, (rwP codommPn). intro_all.
-    apply Bool.negb_true_iff, Bool.not_true_iff_false. intro_all.
+    symmetry. apply Bool.negb_true_iff, (rwP codommPn). intros_all.
+    apply Bool.negb_true_iff, Bool.not_true_iff_false. intros_all.
     apply (rwP eqP), getm_inv in H0.
     rewrite Heqb // in H0.
 Qed.
@@ -556,7 +556,7 @@ Lemma codomm_domm_invm :
 Proof.
   intros.
   apply (rwP (injectivemP _)) in H.
-  apply eq_fset. intro_all.
+  apply eq_fset. intros_all.
   destruct (x ∈ codomm m) eqn:?.
   - apply (rwP dommP) in Heqb as [].
     symmetry. apply (rwP codommP).
@@ -578,7 +578,7 @@ Proof.
   - rewrite <- (rwP (@codommPn _ _ m x)) in H0.
     cut (forall y, invm m x <> Some y).
     { intros. destruct (invm m x) eqn:?; auto. exfalso. apply (H1 s). auto. }
-    intro_all.
+    intros_all.
     pose proof H0 y. apply Bool.negb_true_iff, Bool.not_true_iff_false in H2. apply H2.
     rewrite (getm_inv (k := x)); auto. rewrite eq_refl //.
 Qed.
@@ -586,7 +586,7 @@ Qed.
 Lemma fsetU_repeat : forall (A : ordType) (s : {fset A}), s ∪ s = s.
 Proof.
   intros.
-  apply eq_fset. intro_all.
+  apply eq_fset. intros_all.
   rewrite in_fsetU Bool.orb_diag //.
 Qed.
 
@@ -596,11 +596,11 @@ Lemma fsetU_noop :
     s ∪ s' = s.
 Proof.
   intros.
-  apply eq_fset. intro_all.
+  apply eq_fset. intros_all.
   rewrite in_fsetU.
   destruct (x ∈ s) eqn:?; auto.
   apply (rwP fsubsetP) in H.
-  apply Bool.not_true_iff_false. intro_all.
+  apply Bool.not_true_iff_false. intros_all.
   apply H in H0. rewrite H0 // in Heqb.
 Qed.
 
@@ -611,7 +611,7 @@ Lemma fsubset_fsetU :
 Proof.
   intros.
   apply (rwP fsubsetP) in H.
-  apply (rwP fsubsetP). intro_all.
+  apply (rwP fsubsetP). intros_all.
   rewrite in_fsetU.
   rewrite in_fsetU in H0. apply (rwP orP) in H0 as [].
   - apply H in H0. rewrite H0 //.

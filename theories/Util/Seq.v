@@ -1,4 +1,4 @@
-From AlphaPearl Require Import Util.Tactics.
+From AlphaPearl Require Import Util.PlfTactics.
 From Coq Require Import Bool List ssreflect.
 Import ListNotations.
 From mathcomp Require Import bigop eqtype seq ssrbool ssrnat.
@@ -23,4 +23,4 @@ Proof.
   - apply IHl in H. rewrite H orbT //.
 Qed.
 
-Lemma maxE r : maximum r = \max_(i <- r) i. Proof. exact: foldrE. Qed.
+Lemma maxE r : maximum r = \max_(i <- r) i. Proof. apply foldrE. Qed.

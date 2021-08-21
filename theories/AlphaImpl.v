@@ -23,7 +23,7 @@ Module AlphaString <: Alpha.
   Proof.
     intros.
     rewrite -> Forall_forall. intros.
-    gen_dep x. induction s; intros; auto.
+    gen x. induction s; intros; auto.
     inverts H.
     - destruct s; auto.
       rewrite /= length_append leq_addr //.
@@ -38,7 +38,7 @@ Module AlphaString <: Alpha.
     intros.
     rewrite -> Forall_forall. intros.
     pose proof Fresh_seq_length s. rewrite -> Forall_forall in H0. apply H0 in H.
-    intro_all. subst. rewrite ltnn // in H.
+    intros_all. subst. rewrite ltnn // in H.
   Qed.
 
   Definition 𝒱 := string_ordType.
@@ -49,7 +49,7 @@ Module AlphaString <: Alpha.
   Proof.
     unfold Fresh.
     intros.
-    apply negbT, Bool.not_true_iff_false. intro_all.
+    apply negbT, Bool.not_true_iff_false. intros_all.
     pose proof Fresh_seq_neq s. rewrite -> Forall_forall in H0. apply In_mem, H0 in H.
     contradiction.
   Qed.
@@ -67,9 +67,9 @@ Module AlphaNat <: Alpha.
   Proof.
     unfold Fresh_seq.
     intros.
-    rewrite -> Forall_forall. intro_all. subst.
+    rewrite -> Forall_forall. intros_all. subst.
     apply In_mem in H.
-    gen_dep x. induction s; intros; auto.
+    gen x. induction s; intros; auto.
     rewrite big_cons.
     rewrite in_cons in H. apply (rwP orP) in H as [].
     - apply (rwP eqP) in H. subst.
@@ -85,7 +85,7 @@ Module AlphaNat <: Alpha.
   Proof.
     unfold Fresh.
     intros.
-    apply negbT, Bool.not_true_iff_false. intro_all.
+    apply negbT, Bool.not_true_iff_false. intros_all.
     pose proof Fresh_seq_lt s. rewrite -> Forall_forall in H0. apply In_mem, H0 in H.
     rewrite ltnn // in H.
   Qed.

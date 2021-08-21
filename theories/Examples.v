@@ -33,7 +33,7 @@ Example examples :
   (λ"x" λ"y" `"y"⋅`"x") ≢_α (λ"x" λ"y" `"x"⋅`"y") /\
   (λ"x" λ"x" `"x") ≡_α (λ"y" λ"x" `"x").
 Proof.
-  repeat split; intro_all;
+  repeat split; intros_all;
   try apply α_equivalent_iff_α_equivalent'_free_variables;
   try (inverts H; auto);
   try rewrite /= mkfmapfE in H0;

@@ -1,4 +1,4 @@
-From AlphaPearl Require Import Util.Tactics.
+From AlphaPearl Require Import Util.PlfTactics.
 From Coq Require Import Bool List ssreflect Strings.String.
 Import ListNotations.
 From mathcomp Require Import bigop eqtype seq ssrbool ssrnat.
@@ -15,7 +15,7 @@ Lemma length_append :
     length (x ++ y) = length x + length y.
 Proof.
   intros.
-  gen_dep y. induction x; intros; auto.
+  gen y. induction x; intros; auto.
   rewrite /= -[LHS]addn1 -[RHS]addn1. auto.
 Qed.
 
@@ -24,7 +24,7 @@ Lemma length_concat_cons :
     length (concat sep s) <= length (concat sep (x :: s)).
 Proof.
   intros.
-  gen_dep x. induction s; intros; auto.
+  gen x. induction s; intros; auto.
   rewrite /= !length_append.
   apply leq_trans with (length sep + length (concat sep (a :: s)));
   rewrite leq_addl //.

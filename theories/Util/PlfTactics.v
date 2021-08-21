@@ -1,4 +1,4 @@
-(** This file is a copy of "Programming Language Foundations"'s [LibTactics.v]. *)
+(** This file is an adaptation of _Programming Language Foundations_'s [LibTactics.v]. *)
 
 (** * LibTactics: A Collection of Handy General-Purpose Tactics *)
 
@@ -1911,6 +1911,9 @@ Tactic Notation "gen" ident(X1) ident(X2) ident(X3) ident(X4) ident(X5)
 Tactic Notation "gen" ident(X1) ident(X2) ident(X3) ident(X4) ident(X5)
  ident(X6) ident(X7) ident(X8) ident(X9) ident(X10) :=
   gen X10; gen X9; gen X8; gen X7; gen X6; gen X5; gen X4; gen X3; gen X2; gen X1.
+Tactic Notation "gen" ident(X1) ident(X2) ident(X3) ident(X4) ident(X5)
+ ident(X6) ident(X7) ident(X8) ident(X9) ident(X10) ident(X11) :=
+  gen X11; gen X10; gen X9; gen X8; gen X7; gen X6; gen X5; gen X4; gen X3; gen X2; gen X1.
 
 (** [generalizes X] is a shorthand for calling [generalize X; clear X].
     It is weaker than tactic [gen X] since it does not support
