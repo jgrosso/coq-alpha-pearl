@@ -1028,7 +1028,7 @@ Module AlphaFacts (Import M : Alpha).
       apply In_mem, H1 in H2. auto.
   Qed.
 
-  (** Page 4: "⦇f⦈ ∈ Tm(X) ⟶ Tm (Y)." *)
+  (** Page 4: "⦇f⦈ ∈ Tm(X) ⟶ Tm(Y)." *)
   Lemma lift_substitution_type :
     forall X Y f,
       f ∈ X → Tm Y ->
