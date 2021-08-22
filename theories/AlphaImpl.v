@@ -21,10 +21,10 @@ Module AlphaString <: Alpha.
     forall s : seq string,
       Forall (fun x => length x < length (Fresh_seq s)) s.
   Proof.
-    intros.
-    rewrite -> Forall_forall. intros.
+    introv.
+    rewrite -> Forall_forall. introv Hx_In_s.
     gen x. induction s; intros; auto.
-    inverts H.
+    inverts Hx_In_s.
     - destruct s; auto.
       rewrite /= length_append leq_addr //.
     - apply leq_trans with (length (Fresh_seq s)); auto.
@@ -35,10 +35,10 @@ Module AlphaString <: Alpha.
     forall s : seq string,
       Forall (fun x => x <> Fresh_seq s) s.
   Proof.
-    intros.
-    rewrite -> Forall_forall. intros.
-    pose proof Fresh_seq_length s. rewrite -> Forall_forall in H0. apply H0 in H.
-    intros_all. subst. rewrite ltnn // in H.
+    introv.
+    rewrite -> Forall_forall. introv Hx_In_s.
+    pose proof Fresh_seq_length s as HFresh. rewrite -> Forall_forall in HFresh. apply HFresh in Hx_In_s.
+    introv Hx. subst. rewrite ltnn // in Hx_In_s.
   Qed.
 
   Definition 𝒱 := string_ordType.
@@ -48,9 +48,9 @@ Module AlphaString <: Alpha.
   Lemma Fresh_correct : forall s : {fset 𝒱}, Fresh s ∉ s.
   Proof.
     unfold Fresh.
-    intros.
-    apply negbT, Bool.not_true_iff_false. intros_all.
-    pose proof Fresh_seq_neq s. rewrite -> Forall_forall in H0. apply In_mem, H0 in H.
+    introv.
+    apply negbT, Bool.not_true_iff_false. introv HFresh.
+    pose proof Fresh_seq_neq s as HnFresh. rewrite -> Forall_forall in HnFresh. apply In_mem, HnFresh in HFresh.
     contradiction.
   Qed.
 End AlphaString.
@@ -66,15 +66,15 @@ Module AlphaNat <: Alpha.
       Forall (fun x => x < Fresh_seq s) s.
   Proof.
     unfold Fresh_seq.
-    intros.
-    rewrite -> Forall_forall. intros_all. subst.
-    apply In_mem in H.
+    introv.
+    rewrite -> Forall_forall. introv Hx_In_s. subst.
+    apply In_mem in Hx_In_s.
     gen x. induction s; intros; auto.
     rewrite big_cons.
-    rewrite in_cons in H. apply (rwP orP) in H as [].
-    - apply (rwP eqP) in H. subst.
+    rewrite in_cons in Hx_In_s. apply (rwP orP) in Hx_In_s as [Hxa|Hx_In_s].
+    - apply (rwP eqP) in Hxa. subst.
       rewrite -[(a + _).+1]addn1 addnC addnA [1 + a]addnC ltn_addr // addn1 ltnSn //.
-    - apply IHs in H. rewrite -[(a + ∑_(j ∈ s) j).+1]addn1 -addnA addnC ltn_addr // addn1 //.
+    - apply IHs in Hx_In_s. rewrite -[(a + ∑_(j ∈ s) j).+1]addn1 -addnA addnC ltn_addr // addn1 //.
   Qed.
 
   Definition 𝒱 := nat_ordType.
@@ -84,10 +84,10 @@ Module AlphaNat <: Alpha.
   Lemma Fresh_correct : forall s : {fset 𝒱}, Fresh s ∉ s.
   Proof.
     unfold Fresh.
-    intros.
-    apply negbT, Bool.not_true_iff_false. intros_all.
-    pose proof Fresh_seq_lt s. rewrite -> Forall_forall in H0. apply In_mem, H0 in H.
-    rewrite ltnn // in H.
+    introv.
+    apply negbT, Bool.not_true_iff_false. introv HFresh.
+    pose proof Fresh_seq_lt s as HltFresh. rewrite -> Forall_forall in HltFresh. apply In_mem, HltFresh in HFresh.
+    rewrite ltnn // in HFresh.
   Qed.
 End AlphaNat.
 
