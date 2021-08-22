@@ -3,7 +3,6 @@
 
    ===== TODOs =====
    These will probably be rendered moot by [compute-sets] (assuming it is a success):
-     - Standardize naming for [domm], [codomm], [co_domm], [co_domain], etc.
 
    These will best be tackled after finishing (or abandoning) [compute-sets]:
      - Use [Lemma]s or ([Hint Extern]s) to remove duplication in proofs.
@@ -15,8 +14,8 @@
      - Improve compilation speed.
 
    These are specific to [compute-sets]:
-     - Change all the [*_type] proofs to talk about [domm] and [codomm], and re-add any that were removed from this branch despite being referenced in the paper.
-     - Prove the original, fully-generalized theorems from the paper. *)
+     - Prove the original, fully-generalized theorems from the paper.
+     - Introduce [⊆] notation for [fsubset]. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
@@ -144,22 +143,60 @@ Module AlphaFacts (Import M : Alpha).
         -- rewrite HRk1 //.
   Qed.
 
-  (** Page 3: "R(x,y) ... ∈ (X ∪ {x}) × (Y ∪ {y})." *)
+  Lemma domm_update :
+    forall R x y,
+      fsubset (domm R⦅x,y⦆) (domm R ∪ {x}).
+  Proof.
+    introv.
+    apply (rwP fsubsetP). intros k HR'k.
+    rewrite domm_union domm_rem in_fsetU in_fsetD in_fset1 in HR'k.
+    rewrite in_fsetU in_fset1 orbC.
+    destruct (k =P x); subst; auto.
+    apply (rwP dommP).
+    apply (rwP orP) in HR'k as [HR'k|Hk].
+    - apply (rwP andP) in HR'k as [Hknx HR'k].
+      apply (rwP dommP) in HR'k as [v HR'k].
+      rewrite rem_valmE in HR'k.
+      destruct (getm R k) eqn:HRk; eauto.
+    - rewrite domm_set in_fsetU in_fset1 orbC domm0 /= in Hk.
+      apply (rwP eqP) in Hk. subst. contradiction.
+  Qed.
+
+  Lemma codomm_update :
+    forall R x y,
+      fsubset (codomm R⦅x,y⦆) (codomm R ∪ {y}).
+  Proof.
+    introv.
+    apply (rwP fsubsetP). intros v HvℛR'.
+    apply (rwP codommP) in HvℛR' as [k HR'k].
+    rewrite unionmE remmE rem_valmE setmE /= in HR'k.
+    rewrite in_fsetU in_fset1 orbC.
+    destruct (k =P x); subst.
+    { inverts HR'k. rewrite eq_refl //. }
+    destruct (getm R k) eqn:HRk; cycle 1.
+    { inverts HR'k. }
+    destruct (y =P s); subst; inverts HR'k.
+    apply not_eq_sym, (introF eqP) in n0. rewrite n0.
+    apply (rwP codommP). eauto.
+  Qed.
+
+  (** Page 3: "R(x,y) ... ∈ (X ∪ {x}) × ...." *)
   Lemma update_type :
     forall X Y R x y,
       R ⊆ X × Y ->
       R⦅x,y⦆ ⊆ (X ∪ {x}) × (Y ∪ {y}).
   Proof.
-    unfold is_subset_of.
-    introv HRtype. intros x' y' HRupd.
-    rewrite /= !in_fsetU !in_fset1.
-    rewrite /fmap_to_Prop /update unionmE remmE setmE rem_valmE /= in HRupd.
-    destruct (x' =P x); subst; inverts HRupd as HRupd.
-    - rewrite eq_refl !orbT //.
-    - destruct (getm R x') eqn:HRx'.
-      + destruct (y =P s); subst; inverts HRupd.
-        apply HRtype in HRx'. apply (rwP andP) in HRx' as [Hx' Hy']. rewrite Hx' Hy' //.
-      + inverts HRupd.
+    intros ? ? ? ? ? HRtype x' y' HR'x'.
+    rewrite !in_fsetU !in_fset1 ![_ || (_ == _)]orbC.
+    rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in HR'x'.
+    destruct (x' =P x); subst.
+    { inverts HR'x'. rewrite eq_refl //. }
+    destruct (getm R x') eqn:HRx'; cycle 1.
+    { inverts HR'x'. }
+    destruct (y =P s); subst; inverts HR'x'.
+    apply not_eq_sym, (introF eqP) in n0.
+    apply HRtype in HRx'.
+    rewrite n0 HRx' //.
   Qed.
 
   #[local] Reserved Notation "t '≡_α^' R u" (at level 40, R at level 0).
@@ -292,16 +329,6 @@ Module AlphaFacts (Import M : Alpha).
 
   #[local] Notation "R 'ᵒ'" := (converse R) (at level 40).
 
-  (** Page 3: "Rᵒ ... ⊆ Y × X." *)
-  Lemma converse_type :
-    forall X Y R,
-      R ⊆ X × Y ->
-      R ᵒ ⊆ Y × X.
-  Proof.
-    introv HRtype HRconv.
-    apply getm_inv, HRtype in HRconv. rewrite andbC //.
-  Qed.
-
   (** Page 3: "Both operations are closed under partial bijections." *)
   Lemma converse_closed_under_partial_bijection :
     forall R,
@@ -313,6 +340,42 @@ Module AlphaFacts (Import M : Alpha).
     simpl. rewrite <- (rwP injectivemP). intros x HR'x x' HR'x'.
     apply (rwP dommP) in HR'x as [v HR'x]. rewrite HR'x in HR'x'.
     symmetry in HR'x'. apply getm_inv in HR'x, HR'x'. rewrite HR'x in HR'x'. inverts HR'x'. auto.
+  Qed.
+
+  (** Page 3: "Rᵒ ... ⊆ Y × ...." *)
+  Lemma domm_converse :
+    forall R,
+      partial_bijection R ->
+      domm (R ᵒ) = codomm R.
+  Proof.
+    introv HRinj.
+    apply eq_fset. intros x.
+    apply Bool.eq_iff_eq_true. split; introv H.
+    - rewrite codomm_domm_invm //.
+    - rewrite codomm_domm_invm // in H.
+  Qed.
+
+  (** Page 3: "Rᵒ ... ⊆ ... × X." *)
+  Lemma codomm_converse :
+    forall R,
+      partial_bijection R ->
+      codomm (R ᵒ) = domm R.
+  Proof.
+    introv HRinj.
+    assert (partial_bijection (R ᵒ)) as HR'inj.
+    { apply converse_closed_under_partial_bijection. auto. }
+    apply eq_fset. intros x.
+    apply Bool.eq_iff_eq_true. split; introv H.
+    - rewrite codomm_domm_invm // in H.
+      apply (rwP dommP) in H as [v HR'x].
+      rewrite invmK in HR'x.
+      + apply (rwP dommP). eauto.
+      + apply (rwP injectivemP). auto.
+    - rewrite codomm_domm_invm //.
+      apply (rwP dommP).
+      rewrite invmK.
+      + apply (rwP dommP). eauto.
+      + apply (rwP injectivemP). auto.
   Qed.
 
   (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write...." *)
@@ -327,18 +390,30 @@ Module AlphaFacts (Import M : Alpha).
 
   #[local] Notation "R ';' S" := (compose R S) (at level 40).
 
-  (** Page 3: "R;S ... ⊆ X × Z." *)
-  Lemma compose_type :
-    forall X Y Z R S,
-      R ⊆ X × Y ->
-      S ⊆ Y × Z ->
-      R; S ⊆ X × Z.
+  (** Page 3: "R;S ... ⊆ X × ...." *)
+  Lemma domm_compose :
+    forall R S,
+      fsubset (domm (R;S)) (domm R).
   Proof.
-    introv HRtype HStype. intros x z HRS.
-    rewrite /fmap_to_Prop mkfmapfpE in HRS.
-    destruct (x ∈ domm R) eqn:HRx; rewrite HRx // in HRS.
-    apply (rwP dommP) in HRx as [y HRx]. rewrite HRx in HRS.
-    apply HRtype, (rwP andP) in HRx as [HxX HSy]. apply HStype, (rwP andP) in HRS as [_ HzZ]. rewrite HxX HzZ //.
+    introv.
+    apply (rwP fsubsetP). introv HRSx.
+    apply (rwP dommP) in HRSx as [v HRSx].
+    rewrite mkfmapfpE in HRSx.
+    destruct (x ∈ domm R) eqn:HRx; rewrite HRx // in HRSx.
+  Qed.
+
+  (** Page 3: "R;S ... ⊆ ... × Z." *)
+  Lemma codomm_compose :
+    forall R S,
+      fsubset (codomm (R;S)) (codomm S).
+  Proof.
+    introv.
+    apply (rwP fsubsetP). introv HxℛRS.
+    apply (rwP codommP) in HxℛRS as [k HRSx].
+    rewrite mkfmapfpE in HRSx.
+    destruct (k ∈ domm R) eqn:HRk; rewrite HRk // in HRSx.
+    apply (rwP dommP) in HRk as [v HRk]. rewrite HRk in HRSx.
+    apply (rwP codommP). eauto.
   Qed.
 
   (** Page 3: "Both operations are closed under partial bijections." *)
@@ -1258,14 +1333,22 @@ Module AlphaFacts (Import M : Alpha).
   (** Page 6: "η(x) = x." *)
   Definition η__ X : {fmap 𝒱 → term} := 1__X.
 
-  (** Page 6: "ηX ∈ X ⟶ Tm^α(X)." *)
-  Lemma η_type :
+  (** Page 6: "ηX ∈ X ⟶ ...." *)
+  Lemma domm_η :
     forall X,
-      codomm_Tm_set (η__ X) = domm (η__ X).
+      domm (η__ X) = X.
+  Proof.
+    introv.
+    rewrite domm_map. apply domm_identity.
+  Qed.
+
+  (** Page 6: "ηX ∈ ... ⟶ Tm^α(X)." *)
+  Lemma codomm_Tm_set_η :
+    forall X,
+      codomm_Tm_set (η__ X) = X.
   Proof.
     introv.
     apply eq_fset. intros x.
-    rewrite domm_map domm_mkfmapf in_fset.
     apply Bool.eq_iff_eq_true. split; introv HxX.
     - apply (rwP codomm_Tm_setP) in HxX as (t & Hxt & Hℛηt).
       apply (rwP codommP) in Hℛηt as [x' Hℛηt].
