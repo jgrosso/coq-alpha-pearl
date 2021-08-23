@@ -1,7 +1,4 @@
-(* The code style is pretty messy, since we've been prioritizing prototyping speed so far.
-   However, now that the main results have been formalized, we intend to heavily refactor the proof scripts.
-
-   ===== TODOs =====
+(* ===== TODOs =====
    These will probably be rendered moot by [compute-sets] (assuming it is a success):
 
    These will best be tackled after finishing (or abandoning) [compute-sets]:
@@ -102,10 +99,29 @@ Module AlphaFacts (Import M : Alpha).
     rewrite H1 // in Hs.
   Qed.
 
-  Definition is_subset_of R X Y : Prop :=
-    forall x y, R x y -> (x ∈ X) && (y ∈ Y).
+  Definition is_subset_of R X Y : bool :=
+    (domm R ⊆ X) && (codomm R ⊆ Y).
 
   #[local] Notation "R '⊆' X '×' Y" := (is_subset_of R X Y) (at level 40, X at next level).
+
+  Lemma is_subset_ofP : forall {R} {X} {Y}, reflect (forall x y, R x y -> x ∈ X /\ y ∈ Y) (is_subset_of R X Y).
+  Proof.
+    unfold is_subset_of.
+    introv.
+    apply Bool.iff_reflect.
+    split; intros.
+    - rewrite <- (rwP (@andP (domm R ⊆ X) (codomm R ⊆ Y))).
+      split; apply (rwP fsubsetP); intros x HRx.
+      + apply (rwP dommP) in HRx as [v HRx].
+        eapply H. eauto.
+      + apply (rwP codommP) in HRx as [v HRx].
+        eapply H. eauto.
+    - apply (rwP andP) in H as [HRX HRY].
+      apply (rwP fsubsetP) in HRX, HRY.
+      split.
+      + apply HRX. apply (rwP dommP). eauto.
+      + apply HRY. apply (rwP codommP). eauto.
+  Qed.
 
   #[local] Notation partial_bijection := is_injective (only parsing).
 
@@ -186,7 +202,8 @@ Module AlphaFacts (Import M : Alpha).
       R ⊆ X × Y ->
       R⦅x,y⦆ ⊆ (X ∪ {x}) × (Y ∪ {y}).
   Proof.
-    intros ? ? ? ? ? HRtype x' y' HR'x'.
+    introv HRtype.
+    apply (rwP is_subset_ofP). intros x' y' HR'x'.
     rewrite !in_fsetU !in_fset1 ![_ || (_ == _)]orbC.
     rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in HR'x'.
     destruct (x' =P x); subst.
@@ -195,8 +212,9 @@ Module AlphaFacts (Import M : Alpha).
     { inverts HR'x'. }
     destruct (y =P s); subst; inverts HR'x'.
     apply not_eq_sym, (introF eqP) in n0.
-    apply HRtype in HRx'.
-    rewrite n0 HRx' //.
+    rewrite <- (rwP is_subset_ofP) in HRtype.
+    apply HRtype in HRx' as [Hx'X Hy'Y].
+    rewrite n0 Hx'X Hy'Y //.
   Qed.
 
   #[local] Reserved Notation "t '≡_α^' R u" (at level 40, R at level 0).
@@ -305,7 +323,7 @@ Module AlphaFacts (Import M : Alpha).
   (** Page 3: "1X ... ⊆ X × X." *)
   Lemma identity_type : forall X, (1__X : {fmap 𝒱 → 𝒱}) ⊆ X × X.
   Proof.
-    introv Hxy.
+    introv. apply (rwP is_subset_ofP). introv Hxy.
     rewrite /identity' /= /fmap_to_Prop mkfmapfE in Hxy.
     destruct (x ∈ X) eqn:HxX; rewrite HxX in Hxy;
     inverts Hxy. auto.
@@ -1133,8 +1151,9 @@ Module AlphaFacts (Import M : Alpha).
       destruct (y =P s); subst; inverts HR'w.
       apply not_eq_sym, (introF eqP) in n0. rewrite n0.
       pose proof HRw as H'Rw. apply HRα in H'Rw. inverts H'Rw.
-      apply HRtype, (rwP andP) in HRw as [Hfw Hα].
-       apply (rwP dommP) in Hfw as [t Hfw], Hα as [t' Hgw'].
+      rewrite <- (rwP is_subset_ofP) in HRtype.
+      apply HRtype in HRw as [Hfw Hα].
+      apply (rwP dommP) in Hfw as [t Hfw], Hα as [t' Hgw'].
       rewrite -> Hfw, Hgw' in *.
       apply α_equivalent'_with_behaviorally_identical_maps' with (R := S); auto. intros x' y' HSx' Hx't Hy't'.
       rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /=.
@@ -1176,7 +1195,7 @@ Module AlphaFacts (Import M : Alpha).
     - eapply IHt with (R := R⦅s,s0⦆); eauto.
       + apply partial_bijection_update. auto.
       + apply partial_bijection_update. auto.
-      + rewrite !domm_set /=. introv HR'x.
+      + rewrite !domm_set /=. apply (rwP is_subset_ofP). intros x y HR'x.
         rewrite /= !in_fsetU !in_fset1.
         rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in HR'x.
         destruct (x =P s); subst.
@@ -1184,7 +1203,8 @@ Module AlphaFacts (Import M : Alpha).
         destruct (getm R x) eqn:HRx; cycle 1.
         { inverts HR'x. }
         destruct (s0 =P s1); subst; inverts HR'x.
-        apply HRtype, (rwP andP) in HRx as [Hnxs Hns0y]. simpl in *. rewrite Hnxs Hns0y orbT //.
+        rewrite <- (rwP is_subset_ofP) in HRtype.
+        apply HRtype in HRx as [Hnxs Hns0y]. simpl in *. rewrite Hnxs Hns0y orbT //.
       + introv HR'x. eapply lemma5; eauto; apply Fresh_correct.
     - apply (rwP andP) in H0 as [Hα1 Hα2].
       eapply IHt1 with (S := S) in Hα1; eauto.
@@ -1192,7 +1212,8 @@ Module AlphaFacts (Import M : Alpha).
       rewrite /= Hα1 Hα2 //.
     - apply (rwP getmP) in H0.
       pose proof H0 as HRs. apply HRα in HRs.
-      apply HRtype, (rwP andP) in H0 as [Hfs Hgs0].
+      rewrite <- (rwP is_subset_ofP) in HRtype.
+      apply HRtype in H0 as [Hfs Hgs0].
       simpl in *. apply (rwP dommP) in Hfs as [v Hfs], Hgs0 as [v' Hgs0].
       rewrite -> Hfs, Hgs0 in *. auto.
   Qed.
@@ -1207,7 +1228,7 @@ Module AlphaFacts (Import M : Alpha).
     introv Hα Htαu.
     eapply substitution_preserves_α_congruence'; eauto;
     try apply partial_bijection_identity;
-    intros x y Hxy;
+    try apply (rwP is_subset_ofP); intros x y Hxy;
     rewrite /fmap_to_Prop mkfmapfE in_fsetI in Hxy;
     destruct (x ∈ domm f) eqn:Hfx; inverts Hxy as Hxy;
     destruct (x ∈ domm g) eqn:Hgx; inverts Hxy as Hxy.
@@ -1766,12 +1787,11 @@ Module AlphaFacts (Import M : Alpha).
             apply Hgt. rewrite /= in_fsetD in_fset1 n Hxt //. }
       rewrite /α_equivalent /=.
       apply substitution_preserves_α_congruence' with (R := 1__(FV t)).
-      { rewrite !domm_set !domm_map. intros_all.
-        rewrite <- (rwP andP).
+      { rewrite !domm_set !domm_map. apply (rwP is_subset_ofP). introv Hxy.
         split;
         rewrite /= !in_fsetU !in_fset1;
-        rewrite /fmap_to_Prop mkfmapfE in H0;
-        destruct (x ∈ FV t) eqn:Hxt; rewrite Hxt in H0; inverts H0;
+        rewrite /fmap_to_Prop mkfmapfE in Hxy;
+        destruct (x ∈ FV t) eqn:Hxt; rewrite Hxt in Hxy; inverts Hxy;
         destruct (y =P s); subst; auto;
         apply (introF eqP) in n;
         apply Hgt; rewrite /= in_fsetD in_fset1 n Hxt //. }
@@ -2429,7 +2449,8 @@ Module AlphaFacts (Import M : Alpha).
       destruct (getm R x') eqn:HRx'; cycle 1.
       { inverts HR'x'. }
       destruct (y =P s); subst; inverts HR'x'.
-      pose proof HRx' as H'Rx'. apply HRtype, (rwP andP) in HRx' as [Hϕx' Hψy'].
+      pose proof HRx' as H'Rx'.
+      rewrite <- (rwP is_subset_ofP) in HRtype. apply HRtype in HRx' as [Hϕx' Hψy'].
       apply (rwP dommP) in Hϕx' as [n__ϕ Hϕx'].
       apply (rwP dommP) in Hψy' as [n__ψ Hψy'].
       apply not_eq_sym, (introF eqP) in n0.
@@ -2443,7 +2464,8 @@ Module AlphaFacts (Import M : Alpha).
         destruct (getm ψ y') eqn:Hψy'; inverts Hϕψ.
       + destruct (getm R x') eqn:HRx'.
         * pose proof HRx' as H'Rx'.
-          apply HRtype, (rwP andP) in HRx' as [Hϕx' Hψs].
+          rewrite <- (rwP is_subset_ofP) in HRtype.
+          apply HRtype in HRx' as [Hϕx' Hψs].
           apply (rwP dommP) in Hϕx' as [v__ϕ Hϕx'].
           apply (rwP dommP) in Hψs as [v__ψ Hψs].
           rewrite Hϕx' in Hϕψ.
@@ -2843,7 +2865,7 @@ Module AlphaFacts (Import M : Alpha).
     introv Hϕinj Hϕ't Hϕ'u Hα.
     apply (rwP fsubsetP) in Hϕ't, Hϕ'u.
     apply lemma9 with (R := (1__(domm ϕ))⦅y,x⦆); auto.
-    - rewrite !domm_set ![_ |: _]fsetUC. apply update_type.
+    - rewrite !domm_set ![_ |: _]fsetUC. apply update_type. apply (rwP is_subset_ofP).
       intros k v Hϕk.
       rewrite /fmap_to_Prop mkfmapfE in Hϕk.
       destruct (k ∈ domm ϕ) eqn:H'ϕk; rewrite H'ϕk in Hϕk; inverts Hϕk.
