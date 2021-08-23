@@ -1,18 +1,11 @@
 (* ===== TODOs =====
-   These will probably be rendered moot by [compute-sets] (assuming it is a success):
-
-   These will best be tackled after finishing (or abandoning) [compute-sets]:
-     - Use [Lemma]s or ([Hint Extern]s) to remove duplication in proofs.
-     - Clean up ordering of definitions/lemmas/parameters/notations/etc.
-     - Improve names of lemmas/theorems/etc.
-     - Remove dead code.
-     - Break up into separate files?
-     - Implement custom printing for notations.
-     - Improve compilation speed.
-
-   These are specific to [compute-sets]:
-     - Prove the original, fully-generalized theorems from the paper.
-     - Introduce [⊆] notation for [fsubset]. *)
+  - Use [Lemma]s or ([Hint Extern]s) to remove duplication in proofs.
+  - Clean up ordering of definitions/lemmas/parameters/notations/etc.
+  - Improve names of lemmas/theorems/etc.
+  - Remove dead code.
+  - Break up into separate files?
+  - Implement custom printing for notations.
+  - Improve compilation speed. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
@@ -64,7 +57,7 @@ Module AlphaFacts (Import M : Alpha).
 
   #[local] Notation FV := free_variables.
 
-  Definition Tm X t : bool := fsubset (FV t) X.
+  Definition Tm X t : bool := FV t ⊆ X.
 
   (** Page 2: "Instead of defining a set of terms we define a family of sets Tm(X) of terms with free variables in X ⊆fin 𝒱 inductively...." *)
   Section in_Tm.
@@ -161,7 +154,7 @@ Module AlphaFacts (Import M : Alpha).
 
   Lemma domm_update :
     forall R x y,
-      fsubset (domm R⦅x,y⦆) (domm R ∪ {x}).
+      domm R⦅x,y⦆ ⊆ (domm R ∪ {x}).
   Proof.
     introv.
     apply (rwP fsubsetP). intros k HR'k.
@@ -180,7 +173,7 @@ Module AlphaFacts (Import M : Alpha).
 
   Lemma codomm_update :
     forall R x y,
-      fsubset (codomm R⦅x,y⦆) (codomm R ∪ {y}).
+      codomm R⦅x,y⦆ ⊆ (codomm R ∪ {y}).
   Proof.
     introv.
     apply (rwP fsubsetP). intros v HvℛR'.
@@ -360,7 +353,6 @@ Module AlphaFacts (Import M : Alpha).
     symmetry in HR'x'. apply getm_inv in HR'x, HR'x'. rewrite HR'x in HR'x'. inverts HR'x'. auto.
   Qed.
 
-  (** Page 3: "Rᵒ ... ⊆ Y × ...." *)
   Lemma domm_converse :
     forall R,
       partial_bijection R ->
@@ -373,7 +365,6 @@ Module AlphaFacts (Import M : Alpha).
     - rewrite codomm_domm_invm // in H.
   Qed.
 
-  (** Page 3: "Rᵒ ... ⊆ ... × X." *)
   Lemma codomm_converse :
     forall R,
       partial_bijection R ->
@@ -396,6 +387,19 @@ Module AlphaFacts (Import M : Alpha).
       + apply (rwP injectivemP). auto.
   Qed.
 
+  (** Page 3: "Rᵒ ... ⊆ Y × X." *)
+  Lemma converse_type :
+    forall R X Y,
+      R ⊆ X × Y ->
+      R ᵒ ⊆ Y × X.
+  Proof.
+    introv HRtype.
+    apply (rwP is_subset_ofP). intros y x HR'y.
+    rewrite <- (rwP is_subset_ofP) in HRtype.
+    apply and_comm, HRtype.
+    apply getm_inv. auto.
+  Qed.
+
   (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write...." *)
   Definition compose R S : {fmap 𝒱 → 𝒱} :=
     mkfmapfp
@@ -408,10 +412,9 @@ Module AlphaFacts (Import M : Alpha).
 
   #[local] Notation "R ';' S" := (compose R S) (at level 40).
 
-  (** Page 3: "R;S ... ⊆ X × ...." *)
   Lemma domm_compose :
     forall R S,
-      fsubset (domm (R;S)) (domm R).
+      domm (R;S) ⊆ domm R.
   Proof.
     introv.
     apply (rwP fsubsetP). introv HRSx.
@@ -420,10 +423,9 @@ Module AlphaFacts (Import M : Alpha).
     destruct (x ∈ domm R) eqn:HRx; rewrite HRx // in HRSx.
   Qed.
 
-  (** Page 3: "R;S ... ⊆ ... × Z." *)
   Lemma codomm_compose :
     forall R S,
-      fsubset (codomm (R;S)) (codomm S).
+      codomm (R;S) ⊆ codomm S.
   Proof.
     introv.
     apply (rwP fsubsetP). introv HxℛRS.
@@ -432,6 +434,24 @@ Module AlphaFacts (Import M : Alpha).
     destruct (k ∈ domm R) eqn:HRk; rewrite HRk // in HRSx.
     apply (rwP dommP) in HRk as [v HRk]. rewrite HRk in HRSx.
     apply (rwP codommP). eauto.
+  Qed.
+
+  (** Page 3: "R;S ... ⊆ X × Z." *)
+  Lemma compose_type :
+    forall R S X Y Z,
+      R ⊆ X × Y ->
+      S ⊆ Y × Z ->
+      R;S ⊆ X × Z.
+  Proof.
+    introv HRtype HStype.
+    rewrite <- (rwP is_subset_ofP) in HRtype. rewrite <- (rwP is_subset_ofP) in HStype.
+    apply (rwP is_subset_ofP). intros x z HRSx.
+    rewrite /fmap_to_Prop mkfmapfpE in HRSx.
+    destruct (x ∈ domm R) eqn:HRx; rewrite HRx // in HRSx.
+    apply (rwP dommP) in HRx as [y HRx].
+    rewrite HRx in HRSx. split.
+    - eapply HRtype. eauto.
+    - eapply HStype. eauto.
   Qed.
 
   (** Page 3: "Both operations are closed under partial bijections." *)
@@ -534,8 +554,8 @@ Module AlphaFacts (Import M : Alpha).
   (** Page 3: Lemma 1.3. *)
   Lemma update_compose :
     forall R S x y z k v,
-      getm (R⦅x,y⦆; S⦅y,z⦆) k = Some v ->
-      getm (R; S)⦅x,z⦆ k = Some v.
+      getm (R⦅x,y⦆;S⦅y,z⦆) k = Some v ->
+      getm (R;S)⦅x,z⦆ k = Some v.
   Proof.
     introv HR'S'.
     rewrite unionmE remmE rem_valmE setmE.
@@ -973,6 +993,29 @@ Module AlphaFacts (Import M : Alpha).
 
   #[local] Notation "f '[' x ',' t ']'" := (update_substitution f x t) (at level 10, x at next level, t at next level).
 
+  (** Page 4: "f[x,t] ∈ X ∪ {x} ⟶ ...." *)
+  Lemma domm_update_substitution :
+    forall f x t,
+      domm (f[x,t]) = domm f ∪ {x}.
+  Proof.
+    introv.
+    apply eq_fset. intros k.
+    rewrite in_fsetU in_fset1.
+    apply Bool.eq_iff_eq_true. split; introv Hk.
+    - apply (rwP dommP) in Hk as [v Hf'k].
+      rewrite setmE in Hf'k.
+      destruct (k =P x); subst.
+      { apply orbT. }
+      rewrite orbF.
+      apply (rwP dommP). eauto.
+    - apply (rwP dommP).
+      rewrite setmE.
+      apply (rwP orP) in Hk as [Hfk|Hkx].
+      + apply (rwP dommP) in Hfk as [v Hfk].
+        destruct (k =P x); subst; eauto.
+      + rewrite Hkx. eauto.
+  Qed.
+
   Definition codomm_Tm_set f : {fset 𝒱} := ⋃_(i ∈ codomm f) (FV i).
 
   Lemma codomm_Tm_setP :
@@ -985,6 +1028,24 @@ Module AlphaFacts (Import M : Alpha).
     - apply (rwP hasP) in Hxℛf as [t Hxℱf]. exists t. auto.
     - apply negbT, (rwP hasPn) in Hxℛf. intros (t & Hxt & Htℛf).
       apply Hxℛf in Htℛf. rewrite Hxt // in Htℛf.
+  Qed.
+
+  (** Page 4: "f[x,t] ∈ ... ⟶ Tm(Y)." *)
+  Lemma codomm_update_substitution' :
+    forall Y f x t,
+      codomm_Tm_set f ⊆ Y ->
+      t ∈ Tm Y ->
+      codomm_Tm_set (f[x,t]) ⊆ Y.
+  Proof.
+    introv HℛfY HtY.
+    apply (rwP fsubsetP) in HℛfY.
+    apply (rwP fsubsetP). intros k Hℛf'k.
+    apply (rwP codomm_Tm_setP) in Hℛf'k as (t' & Hkt' & Hℛf't').
+    apply (rwP codommP) in Hℛf't' as [k' Hf'k'].
+    rewrite setmE in Hf'k'.
+    destruct (k' =P x); subst.
+    { inverts Hf'k'. apply (rwP fsubsetP) in HtY. auto. }
+    apply HℛfY, (rwP codomm_Tm_setP). exists t'. split; auto. apply (rwP codommP). eauto.
   Qed.
 
   #[local] Reserved Notation "'⦇' f '⦈'".
@@ -1170,7 +1231,7 @@ Module AlphaFacts (Import M : Alpha).
 
   Lemma subset_domm_substitution :
     forall f x t,
-      fsubset (domm f) (domm (f[x,t])).
+      domm f ⊆ domm (f[x,t]).
   Proof.
     introv.
     apply (rwP fsubsetP). intros x' Hfx'.
@@ -1421,28 +1482,6 @@ Module AlphaFacts (Import M : Alpha).
     rewrite Hy'u // in Hnyu.
   Qed.
 
-  Lemma domm_update_substitution :
-    forall f x t,
-      domm (f[x,t]) = domm f ∪ {x}.
-  Proof.
-    introv.
-    apply eq_fset. intros k.
-    rewrite in_fsetU in_fset1.
-    apply Bool.eq_iff_eq_true. split; introv Hk.
-    - apply (rwP dommP) in Hk as [v Hf'k].
-      rewrite setmE in Hf'k.
-      destruct (k =P x); subst.
-      { apply orbT. }
-      rewrite orbF.
-      apply (rwP dommP). eauto.
-    - apply (rwP dommP).
-      rewrite setmE.
-      apply (rwP orP) in Hk as [Hfk|Hkx].
-      + apply (rwP dommP) in Hfk as [v Hfk].
-        destruct (k =P x); subst; eauto.
-      + rewrite Hkx. eauto.
-  Qed.
-
   Lemma FV_lift_substitution :
     forall f t,
       t ∈ Tm (domm f) ->
@@ -1602,10 +1641,11 @@ Module AlphaFacts (Import M : Alpha).
   (** Page 7: "We have to show ⦇f[[z0 = z1]]⦈ ∘ g[[x = z0]](v) ≡α (⦇f⦈ ∘ g)[[x = z1]](v)." *)
   #[program] Lemma lift_update_substitution_compose_substitution_update :
     forall f g x z0 z1,
-      fsubset (codomm_Tm_set g) (domm f) ->
+      codomm_Tm_set g ⊆ domm f ->
       z1 ∉ codomm_Tm_set f ->
       z0 ∉ codomm_Tm_set g ->
-      forall v, v ∈ (domm g ∪ {x}) -> getm (⦇f[z0,variable z1]⦈ ∘ g[x,variable z0]) v `≡_α getm ((⦇f⦈ ∘ g)[x,variable z1]) v.
+      forall v, v ∈ (domm g ∪ {x}) ->
+           getm (⦇f[z0,variable z1]⦈ ∘ g[x,variable z0]) v `≡_α getm ((⦇f⦈ ∘ g)[x,variable z1]) v.
   Proof.
     introv Hℛgf Hnℛfz1 Hnℛgz0 Hg'v.
     apply (rwP fsubsetP) in Hℛgf.
@@ -1656,6 +1696,7 @@ Module AlphaFacts (Import M : Alpha).
       + rewrite in_fset1 eq_refl //.
   Qed.
 
+  (** Page 6: Proposition 6.1. *)
   Proposition monad_substitution1 :
     forall X t,
       t ∈ Tm X ->
@@ -1677,6 +1718,7 @@ Module AlphaFacts (Import M : Alpha).
     - rewrite /Tm /in_mem /=. apply (rwP fsubsetP). introv Hxt. auto.
   Qed.
 
+  (** Page 6: Proposition 6.2. *)
   #[program] Proposition monad_substitution2 :
     forall f x,
       x ∈ domm f ->
@@ -1687,7 +1729,7 @@ Module AlphaFacts (Import M : Alpha).
 
   #[program] Lemma codomm_Tm_set_mapm :
     forall f g,
-      fsubset (codomm_Tm_set g) (domm f) ->
+      codomm_Tm_set g ⊆ domm f ->
       codomm_Tm_set (mapm ⦇f⦈ g) = ⋃_(x ∈ codomm_Tm_set g) (FV (odflt (variable _) (getm f x))).
   Proof.
     introv Hfℛg.
@@ -1722,9 +1764,10 @@ Module AlphaFacts (Import M : Alpha).
       rewrite mapmE Hg'y //.
   Qed.
 
+  (** Page 6: Proposition 6.3. *)
   Proposition monad_substitution3 :
     forall f g t,
-      fsubset (codomm_Tm_set g) (domm f) ->
+      codomm_Tm_set g ⊆ domm f ->
       t ∈ Tm (domm g) ->
       (⦇f⦈ ∘ ⦇g⦈) t ≡_α ⦇⦇f⦈ ∘ g⦈ t.
   Proof.
@@ -3239,7 +3282,7 @@ Module AlphaFacts (Import M : Alpha).
    *)
   Lemma TAPL_6_2_8 :
     forall ϕ t u x,
-      fsubset (FV t ∪ FV u ∪ {x}) (domm ϕ) ->
+      (FV t ∪ FV u ∪ {x}) ⊆ domm ϕ ->
       is_injective ϕ ->
       (t[x⟵u])^ϕ = [odflt 0 (getm ϕ x)↦u^ϕ](t^ϕ).
   Proof.
