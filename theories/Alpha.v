@@ -993,7 +993,7 @@ Module AlphaFacts (Import M : Alpha).
 
   #[local] Notation "f '[' x ',' t ']'" := (update_substitution f x t) (at level 10, x at next level, t at next level).
 
-  (** Page 4: "f[x,t] ∈ X ∪ {x} ⟶ ...." *)
+  (** Page 4: "f[[x,t]] ∈ X ∪ {x} ⟶ ...." *)
   Lemma domm_update_substitution :
     forall f x t,
       domm (f[x,t]) = domm f ∪ {x}.
@@ -1030,7 +1030,7 @@ Module AlphaFacts (Import M : Alpha).
       apply Hxℛf in Htℛf. rewrite Hxt // in Htℛf.
   Qed.
 
-  (** Page 4: "f[x,t] ∈ ... ⟶ Tm(Y)." *)
+  (** Page 4: "f[[x,t]] ∈ ... ⟶ Tm(Y)." *)
   Lemma codomm_update_substitution' :
     forall Y f x t,
       codomm_Tm_set f ⊆ Y ->
