@@ -1,11 +1,13 @@
 (* ===== TODOs =====
-  - Use [Lemma]s or ([Hint Extern]s) to remove duplication in proofs.
+  - Use [Lemma]s (or [Hint Extern]s) to remove duplication in proofs.
   - Clean up ordering of definitions/lemmas/parameters/notations/etc.
   - Improve names of lemmas/theorems/etc.
   - Remove dead code.
   - Break up into separate files?
   - Implement custom printing for notations.
-  - Improve compilation speed. *)
+  - Improve compilation speed.
+  - Improve evaluation speed.
+  - Set up extraction. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Setoid ssreflect.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
