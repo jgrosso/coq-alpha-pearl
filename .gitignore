@@ -1,5 +1,6 @@
 .DS_Store
 
+# Coq
 .*.aux
 .*.d
 *.a
@@ -36,7 +37,7 @@ nlia.cache
 nra.cache
 native_compute_profile_*.data
 
-# generated timing files
+## generated timing files
 *.timing.diff
 *.v.after-timing
 *.v.before-timing
@@ -46,8 +47,17 @@ time-of-build-before.log
 time-of-build-both.log
 time-of-build-pretty.log
 
-# generated CoqIDE crash report files
+## generated CoqIDE crash report files
 *.crashcoqide
 
-# generated documentation files
+## generated documentation files
 html/
+
+# LaTeX
+auto/
+_minted-*/
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
