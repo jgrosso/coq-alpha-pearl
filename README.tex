@@ -2,8 +2,7 @@
 
 \usepackage{amsfonts, amsmath, fontspec, minted, stmaryrd, url}
 
-\setmonofont{Symbola}
-\setmonofont{DejaVu Sans Mono}
+\setmonofont[Scale=0.9]{DejaVu Sans Mono}
 
 \title{coq-alpha-pearl README}
 \author{Joshua Grosso \\ Faculty Mentor: Michael Vanier}
@@ -14,7 +13,7 @@
 
 \section{Introduction}
 
-A Coq formalization of ``Functional Pearls: α-conversion is easy'' (Altenkirch, 2002). The most important file is [theories/Alpha.v].
+A Coq formalization of ``Functional Pearls: $\alpha$-conversion is easy'' (Altenkirch, 2002). The most important file is \verb|theories/Alpha.v|.
 
 To our knowledge, all of the main results contained within the paper itself have been formalized. (Proving the equivalence to de Bruijn terms is still in progress, but because it is left to the reader in the original paper, we are comfortable sharing this formalization as-is.)
 
@@ -48,7 +47,7 @@ project. The one exception is \verb|theories/Util/PlfTactics.v|, which is a copy
 The project relies on the \verb|math-comp| library as a supplement to Coq's built-in standard
 library. It relies on \verb|extructures| for extensionally-equal finite sets and maps. Finally, it
 relies on \verb|LibTactics.v| from \emph{Programming Language Foundations} (it exists as a copy in our
-project as \verb|theories/Util/PlfTactics.v|).
+project at \verb|theories/Util/PlfTactics.v|).
 
 \section{Formalization Overview}
 
@@ -131,7 +130,7 @@ Lemma TmP : forall X t, reflect (in_Tm X t) (t ∈ Tm X).
 \end{minted}
 
 Similarly, we define, use, and prove correctness of algorithmic forms of $\equiv_\alpha^R$ and
-$\textrm{Tm}^{\textrm{db}}$.
+$\textrm{Tm}^{\textrm{db}}$. This makes them easy to use in runtime computations.
 
 \subsection{Explicitly-Provided Sets}
 
@@ -147,8 +146,13 @@ $\alpha$-equivalence of $t$ and $u$).
 
 We employ a similar strategy for function domains and codomains. Instead of referencing the set $X$
 in $f \in X \longrightarrow \textrm{Tm}(Y)$ (page 4), we instead reference $\textrm{dom}(f)$.
-Similarly, instead of referencing $Y$, we instead calculate the smallest such set by iterating over
+Similarly, instead of referencing $Y$, we calculate the smallest such set by iterating over
 the codomain of $f$ (see \verb|codomm_Tm_set|).
+
+Our original approach had been to name these sets explicitly and take them as parameters to the
+propositions. We were successful in proving the main results of the paper, but the resulting
+definitions were very unwieldy. Eventually, we revised our work to calculate all such sets where
+possible, and found that the proof scripts became much shorter as a result.
 
 \subsection{Symmetric Updates}
 
