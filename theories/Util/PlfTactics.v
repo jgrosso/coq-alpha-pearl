@@ -4846,8 +4846,3 @@ Open Scope nat_scope.
 
 
 (* Thu Feb 7 20:09:27 EST 2019 *)
-
-
-(** J.G. NOTES:
-I read through [UseTactics] instead of this file, as per the reader recommendation.
-*)

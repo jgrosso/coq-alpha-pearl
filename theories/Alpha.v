@@ -296,6 +296,8 @@ Module AlphaFacts (Import M : Alpha).
       + apply (rwP codommP). eauto.
   Qed.
 
+  (** TODO Formalize "Note that we cannot replace partial bijections by bijections..."? *)
+
   (** Page 3: "Given X, Y, Z ⊂fin 𝒱 we write 1X = ...." *)
   Definition identity : {fset 𝒱} -> {fmap 𝒱 → 𝒱} := mkfmapf id.
 
@@ -1064,9 +1066,6 @@ Module AlphaFacts (Import M : Alpha).
     end
 
   where "'⦇' f '⦈'" := (lift_substitution f).
-
-  #[global] Instance lift_substitution_Identity : Identity ({fmap 𝒱 → term} -> term -> term) :=
-    { identity' _ (f : {fmap 𝒱 → term}) := ⦇f⦈ }.
 
   Lemma α_equivalent_update :
     forall R t u x y,
@@ -3280,7 +3279,7 @@ Module AlphaFacts (Import M : Alpha).
 
   (** Page 8: "I leave it to the reader to show that -^ϕ preserves substitution, i.e. it maps substitutions to named terms as given here to substitution on de Bruijn terms."
 
-      This is the only result not yet formalized.
+      This is the only main result not yet formalized.
    *)
   Lemma TAPL_6_2_8 :
     forall ϕ t u x,
