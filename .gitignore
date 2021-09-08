@@ -61,3 +61,4 @@ _minted-*/
 *.fls
 *.log
 *.synctex.gz
+*.out
