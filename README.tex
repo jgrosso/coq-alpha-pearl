@@ -162,7 +162,8 @@ generality), we have largely replaced references to sets used in this manner wit
 For example, we have formalized Proposition 2.1 as $\forall t : t \equiv_\alpha^{1_{\textrm{FV}(t)}}
 t$ instead of $\forall t \in \textrm{Tm}(X) : t \equiv_\alpha^{1_X} t$. For another example, we
 defined $t \equiv_\alpha u = t \equiv_\alpha^{1_{\textrm{FV}(t)}} u$ (noting that $\textrm{FV}(t) =
-\textrm{FV}(u)$ by the assumed $\alpha$-equivalence of $t$ and $u$).
+\textrm{FV}(u)$ by the assumed $\alpha$-equivalence of $t$ and $u$; see
+\verb|α_equivalent'_implies_α_equivalent| for a proof).
 
 We employ a similar strategy for function domains and codomains. Instead of referencing the set $X$
 in $f \in X \longrightarrow \textrm{Tm}(Y)$ (page 4), we instead reference $\textrm{dom}(f)$.
@@ -171,27 +172,30 @@ codomain of $f$ (see \verb|codomm_Tm_set|).
 
 Our original approach had been to name these sets explicitly and take them as parameters to the
 propositions. We were successful in proving the main results of the paper, but the resulting
-definitions were very unwieldy. Eventually, we revised our work to calculate all such sets where
-possible, and found that the proof scripts became much shorter as a result.
+definitions were very unwieldy. Eventually, we revised our work to automatically calculate all such
+sets where possible, and found that the proof scripts became much shorter as a result.
 
 \subsection{Symmetric Updates}
 
-Assuming the original paper uses ordered tuples, we have changed the definition of $R(x,y) = (R
-\setminus \{ (x,v),(y,w) \, | \, v,w \in \mathcal{V} \}) \cup \{ (x,y) \}$ to $R(x,y) = (R \setminus
-\{ (x,v),(w,y) \, | \, v,w \in \mathcal{V} \}) \cup \{ (x,y) \}$. We believe this to have been the
-intention of the original author (given the emphasis on the symmetricality of the update procedure).
+(We assumed the original paper uses ordered tuples; if that is not the case, this change is of no
+importance.) We changed the definition of $R(x,y) = (R \setminus \{ (x,v),(y,w) \, | \, v,w \in
+\mathcal{V} \}) \cup \{ (x,y) \}$ to $R(x,y) = (R \setminus \{ (x,v),(w,y) \, | \, v,w \in
+\mathcal{V} \}) \cup \{ (x,y) \}$. We believe this to have been the intention of the original author
+(given the emphasis on the symmetricality of the update procedure).
 
 \subsection{Lemma 1.3}
 
 We believe that the original proof for Lemma 1.3 (page 3) has a counterexample, arising from the
 second and third steps of the $\iff$ chain. Specifically, consider the backwards implication portion
-of that step. Let us separately consider the two cases of our hypothesis $(a = x \land z = b) \lor
-(x \neq a \land z \neq b \land a R; S b)$. If $a = x$ and $z = b$, then we can let $c = y$ and our
-conclusion is satisfied. Thus, we will now assume instead that $x \neq a$, $z \neq b$, and $a R; S
-b$. Because $R$ and $S$ are both partial bijections, there must exist a unique $c$ for which $aRc$
-and $cSb$. However, as best we can tell, $c = y$ is not prohibited by the assumptions of the lemma;
-thus, for the sake of argument, we will assume this equality. In this case, neither case of the
-conclusion is possible, and so we have a contradiction.
+of $\exists c. (a = x \land y = c \land z = b) \lor (x \neq a \land y \neq c \land z \neq b \land a
+R c \land c S b) \iff (a = x \land z = b) \lor (x \neq a \land z \neq b \land a R; S b)$. Let us
+separately consider the two cases of our hypothesis $(a = x \land z = b) \lor (x \neq a \land z \neq
+b \land a R; S b)$. If $a = x$ and $z = b$, then we can let $c = y$ and our conclusion is satisfied.
+Thus, we will now assume instead that $x \neq a$, $z \neq b$, and $a R; S b$. Because $R$ and $S$
+are both partial bijections, there must exist a unique $c$ for which $aRc$ and $cSb$. However, as
+best we can tell, $c = y$ is not prohibited by the assumptions of the lemma; thus, for the sake of
+argument, we will assume this equality. In this case, neither case of the conclusion is possible,
+and so we have a contradiction.
 
 In our formalization, we have replaced $R(x,y); S(y,z) = (R;S)(x,z)$ with $\forall a, b \in
 \mathcal{V} : a R(x,y); S(y,z) b \implies a (R;S)(x,z) b$. Fortunately, this is still strong enough
@@ -200,16 +204,16 @@ to prove proposition 2.3, i.e.\ where lemma 1.3 was originally used.
 \subsection{Equivalence Classes}
 
 Coq does not yet support quotient types (at least not without adding related axioms, which we are
-hesitant to add). Thus, instead of defining $\textrm{Tm}(X)/\equiv_\alpha$ at the term-level, we
+hesitant to do). Thus, instead of defining $\textrm{Tm}(X)/\equiv_\alpha$ at the term-level, we
 manually proved that the subsequent theorems respect $\equiv_\alpha$.
 
 \subsection{Substitution Extension}
 
 In the definition of $\llparenthesis f \rrparenthesis$ (page 4), we were unclear whether or not $Y$
-is updated upon structural recursion, i.e.\ whether we should always reference the codomain of the
-top-level $f$, or if we should instead use $\textrm{cod}(f[x,z])$ when recursing in $\llparenthesis
-f \rrparenthesis(\lambda x. t) = \lambda z. \llparenthesis f[x,z] \rrparenthesis (t)$. We assumed
-the latter, and were able to prove the subsequent theorems.
+is held constant during structural recursion, i.e.\ whether we should always reference the codomain
+of the top-level $f$, or if we should instead use $\textrm{cod}(f[x,z])$ when recursing in
+$\llparenthesis f \rrparenthesis(\lambda x. t) = \lambda z. \llparenthesis f[x,z] \rrparenthesis
+(t)$. We assumed the latter, and were able to prove the subsequent theorems.
 
 \subsection{Substitution Monad Laws}
 
@@ -227,7 +231,7 @@ was the original author's intention.
 On page 2, we presume that $X \subseteq_{\textrm{fin}} \mathcal{V}$ is equivalent (by the
 infiniteness of $\mathcal{V}$) to $X \subset_{\textrm{fin}} \mathcal{V}$.
 
-On page 3, we presume that $R(x,y) \dots \in (X \cup \{ x \}) \times (Y \cup \{ y \})$ uses $\in$ to
+On page 3, we presume that $R(x,y) \textellipsis \in (X \cup \{ x \}) \times (Y \cup \{ y \})$ uses $\in$ to
 represent $\subseteq$.
 
 On page 5, we assume that ``Hence by ind.hyp.\ we know $\llparenthesis f[x,z] \rrparenthesis (t)
@@ -241,14 +245,14 @@ Some of our potential next steps:
 
 Proving equivalence to de Bruijn terms is still in progress.
 
-Currently, the definition of \verb|term| is not user-extensible (and is currently rather barebones).
-We hope to explore ways, if possible, to adapt this formalization to more featureful
+Currently, the definition of \verb|term| is not user-extensible (and is currently rather
+bare-bones). We hope to explore ways, if possible, to adapt this formalization to more featureful
 $\lambda$-calculi on demand.
 
 We hope to investigate and improve the runtime performance of our definition of $\equiv_\alpha$.
 (Currently, \verb|theories/Examples.v| is rather slow to run.)
 
-Please see the header comment in \verb|theories/Alpha.v| for TODOs relating to the Coq scripts
+Please see the header comment in \verb|theories/Alpha.v| for tasks relating to the Coq scripts
 themselves.
 
 \section{Acknowledgements}
