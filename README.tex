@@ -73,7 +73,7 @@ maps. Finally, we rely on \verb|LibTactics.v| from \emph{Programming Language Fo
 This formalization contains several deviations from the original paper. Some were for ease of
 formalization, while others were (as best we can tell) required to prove the desired statements. We
 tried to be generally faithful to the provided proofs, at least for the more complex theorems.
-Finally, although we hope it is not the case, any or all of the below changes could have arisen from
+Finally, although we hope it is not the case, any or all of the changes below could have arisen from
 misinterpretations on our part of the original author's meaning.
 
 \subsection{Typed Lambda Calculus}
@@ -95,8 +95,8 @@ Parameter V : ordType.
 The ordering constraint is not strictly necessary for formalization (and is not present in the
 original paper), but it allows us to use the \verb|extructures| library's implementation of
 extensionally-equal finite sets. This is very convenient for formalization, and we expect that
-orderings exist for all usual definitions of $\mathcal{V}$ (e.g.\ the set of all finite strings, or
-$\mathbb{N}$).
+orderings exist for all the usual definitions of $\mathcal{V}$ (e.g.\ the set of all finite strings,
+or $\mathbb{N}$).
 
 Of course, if this expectation proves to be incorrect, we can remove this constraint (at the cost of
 simplicity). For example, we could represent finite sets as linked lists with an appropriate
