@@ -122,7 +122,7 @@ Module AlphaFacts (Import M : Alpha).
 
   (** Page 3: "Given R a partial bijection as above and x, y ∈ 𝒱 we define the symmetric update of R as...." *)
   Definition update R x y : {fmap 𝒱 → 𝒱} :=
-    unionm (remm (rem_valm _ R y) x) [fmap (x, y)].
+    unionm (remm (rem_valm R y) x) [fmap (x, y)].
 
   #[local] Notation "R '⦅' x ',' y '⦆'" := (update R x y) (at level 0).
 

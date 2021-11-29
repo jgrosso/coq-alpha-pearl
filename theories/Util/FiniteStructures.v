@@ -494,12 +494,12 @@ Proof.
   rewrite rem_fsetmE //.
 Qed.
 
-Definition rem_valm (A B : ordType) (m : {fmap A -> B}) (v : B) : {fmap A -> B} :=
+Definition rem_valm {A B : ordType} (m : {fmap A -> B}) (v : B) : {fmap A -> B} :=
   filterm (fun _ v' => v != v') m.
 
 Lemma rem_valmE :
   forall (A B : ordType) (m : {fmap A -> B}) (k : A) (v : B),
-    getm (rem_valm _ m v) k =
+    getm (rem_valm m v) k =
       match m k with
       | Some v' => if v == v' then None else Some v'
       | None => None
