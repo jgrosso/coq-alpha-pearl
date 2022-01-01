@@ -646,3 +646,60 @@ Proof.
     apply (rwP codommP).
     exists x1. rewrite mapmE H //.
 Qed.
+
+Lemma remm_union :
+  forall (A B : ordType) (m n : {fmap A → B}) (k : A),
+    remm (unionm m n) k = unionm (remm m k) (remm n k).
+Proof.
+  introv.
+  apply eq_fmap. intros x.
+  rewrite remmE !unionmE !remmE.
+  destruct (x =P k); subst; auto.
+Qed.
+
+Lemma injectivem_union :
+  forall (A B : ordType) (m n : {fmap A → B}),
+    fdisjoint (domm m) (domm n) ->
+    injectivem (unionm m n) ->
+    injectivem m /\ injectivem n.
+Proof.
+  introv Hdisj Hmn.
+  rewrite fdisjointC in Hdisj. rewrite <- (rwP fdisjointP) in Hdisj.
+  apply (rwP injectivemP) in Hmn.
+  split; rewrite <- (rwP injectivemP); intros x Hx y Hxy.
+  apply Hmn; try solve [rewrite domm_union in_fsetU Hx // orbC //];
+  rewrite !unionmE -Hxy;
+  apply (rwP dommP) in Hx as [v Hx]; rewrite Hx in Hxy.
+  { rewrite Hx //. }
+  apply Hmn.
+  { rewrite domm_union in_fsetU Hx orbC //. }
+  rewrite !unionmE.
+  assert (y ∈ domm n) as Hy.
+  { apply (rwP dommP). apply (rwP dommP) in Hx as [v Hx]. rewrite Hx in Hxy. eauto. }
+  apply Hdisj, (rwP dommPn) in Hx, Hy. rewrite Hx Hy //.
+Qed.
+
+Lemma injectivem_union_disjoint_codomm :
+  forall (A B : ordType) (m n : {fmap A → B}),
+    fdisjoint (domm m) (domm n) ->
+    injectivem (unionm m n) ->
+    fdisjoint (codomm m) (codomm n).
+Proof.
+  introv Hdisj Hmn.
+  rewrite fdisjointC in Hdisj. rewrite <- (rwP fdisjointP) in Hdisj.
+  apply (rwP injectivemP) in Hmn.
+  apply (rwP fdisjointP). intros x Hm'x.
+  apply (rwP codommP) in Hm'x as [v Hmv].
+  apply (rwP (@codommPn _ _ n _)). intros y.
+  apply Bool.negb_true_iff, Bool.not_true_iff_false. intros Hny.
+  apply (rwP eqP) in Hny.
+  assert (v = y); subst.
+  { apply Hmn.
+    { rewrite domm_union in_fsetU. apply (rwP orP). left. apply (rwP dommP). eauto. }
+    rewrite !unionmE Hmv /=.
+    assert (y ∉ domm m) as Hmny. { apply Hdisj, (rwP dommP). eauto. }
+    apply (rwP dommPn) in Hmny. rewrite Hmny //. }
+  assert (y ∈ domm n) as H'ny. { apply (rwP dommP). eauto. }
+  assert (y ∈ domm m) as H'my. { apply (rwP dommP). eauto. }
+  apply Hdisj in H'ny. rewrite H'my // in H'ny.
+Qed.

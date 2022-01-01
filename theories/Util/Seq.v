@@ -1,4 +1,4 @@
-From AlphaPearl Require Import Util.PlfTactics.
+From AlphaPearl Require Import Util.Nat Util.PlfTactics.
 From Coq Require Import Bool List ssreflect.
 Import ListNotations.
 From mathcomp Require Import bigop eqtype seq ssrbool ssrnat.
@@ -17,7 +17,7 @@ Notation "x '∉' y" := (x \notin y) (at level 70).
 (* Note that, at least for now, [maximum nil = 0]. *)
 Definition maximum : list nat -> nat := foldr maxn 0.
 
-Lemma maximum_correct : forall (l : list nat) (x : nat), x \in l -> x <= maximum l.
+Lemma maximum_correct : forall (l : list nat) (x : nat), x ∈ l -> x <= maximum l.
 Proof.
   induction l; intros.
   { inverts H. }
@@ -54,4 +54,32 @@ Proof.
   induction s.
   { rewrite !big_nil //. }
   rewrite !big_cons -!maxnSS geq_max leq_max leqnn leq_max IHs orbT //.
+Qed.
+
+Lemma maximum_in :
+  forall l : seq nat,
+    l = nil \/ maximum l ∈ l.
+Proof.
+  intros.
+  induction l; auto.
+  right.
+  rewrite in_cons.
+  destruct IHl as [IHl|IHl]; subst.
+  - rewrite eq_refl //.
+  - destruct (maxn_either a (maximum l)) as [Hmax|Hmax]; rewrite /= Hmax.
+    + rewrite eq_refl //.
+    + rewrite IHl orbT //.
+Qed.
+
+Lemma maximum_leq :
+  forall l1 l2 : seq nat,
+    (forall n, n ∈ l1 -> n <= maximum l2) ->
+      maximum l1 <= maximum l2.
+Proof.
+  introv Hl12.
+  induction l1; auto.
+  rewrite /= geq_max -(rwP andP). split.
+  - rewrite Hl12 // mem_head //.
+  - apply IHl1. introv Hn.
+    rewrite Hl12 // in_cons Hn orbT //.
 Qed.

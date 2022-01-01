@@ -1,6 +1,7 @@
 -R theories/ AlphaPearl
 
 theories/Util/PlfTactics.v
+theories/Util/Nat.v
 theories/Util/Seq.v
 theories/Util/FiniteStructures.v
 theories/Util/Compose.v
