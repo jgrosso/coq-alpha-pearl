@@ -3768,29 +3768,29 @@ Module AlphaFacts (Import M : Alpha).
   #[local] Reserved Infix "=_α" (at level 40).
 
   Inductive trad_α : term -> term -> Prop :=
-  | trad_α_var : forall x,
-      trad_α (variable x) (variable x)
-  | trad_α_abs : forall x t u,
-      trad_α t u -> trad_α (abstraction x t) (abstraction x u)
-  | trad_α_app : forall t1 t2 u1 u2,
-      trad_α t1 u1 -> trad_α t2 u2 -> trad_α (application t1 t2) (application u1 u2)
+  | trad_α_var :
+    forall x,
+      variable x =_α variable x
+  | trad_α_abs :
+    forall x t u,
+      t =_α u ->
+      abstraction x t =_α abstraction x u
+  | trad_α_app :
+    forall t1 t2 u1 u2,
+      t1 =_α u1 ->
+      t2 =_α u2 ->
+      application t1 t2 =_α application u1 u2
   | trad_α_renaming :
-      forall v v' t,
-        v <> v' ->
-        v' ∉ FV t ->
-        trad_α (abstraction v t) (abstraction v' (t[v⟵variable v']))
-  | trad_α_trans : forall t u (v : term), trad_α t u -> trad_α u v -> trad_α t v
+    forall v v' t,
+      v' ∉ FV t ->
+      abstraction v t =_α abstraction v' (t[v⟵variable v'])
+  | trad_α_trans :
+    forall t u (v : term),
+      t =_α u -> u =_α v -> t =_α v
 
   where "x '=_α' y" := (trad_α x y).
 
   #[local] Hint Constructors trad_α : core.
-
-  Lemma trad_α_reflexive :
-    forall t, t =_α t.
-  Proof.
-    introv.
-    induction t; auto.
-  Qed.
 
   Lemma α_equivalent'_remove_noop_update :
     forall R t u x y,
@@ -3926,8 +3926,6 @@ Module AlphaFacts (Import M : Alpha).
         { rewrite term_depth_lift_variable_substitution //.
           apply preserves_structure_update_substitution, identity_preserves_structure. }
         apply trad_α_trans with (abstraction s0 (t[s⟵variable s0])); auto.
-        apply trad_α_renaming; auto.
-        apply not_eq_sym, (elimF eqP). auto.
       + apply α_equivalent_applications in H1 as [Ht Hu].
         constructor; apply H; auto;
         rewrite ltnS leq_max leqnn ?orbT //.
@@ -3954,10 +3952,10 @@ Module AlphaFacts (Import M : Alpha).
           { apply eq_fset. intros x.
             rewrite !in_fsetD !in_fset1.
             destruct (x =P v); subst.
-            - apply (introF eqP) in H. rewrite H //.
+            - rewrite andbF //.
             - destruct (x ∈ FV t) eqn:Hxt.
               + destruct (x =P v'); subst; auto.
-                rewrite Hxt // in H0.
+                rewrite Hxt // in H.
               + destruct (x =P v'); subst; auto. }
           apply variable_substitution_as_α_equivalent'. auto.
         * transitivity (abstraction v' t);
@@ -3972,7 +3970,7 @@ Module AlphaFacts (Import M : Alpha).
              destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt in Hkx; inverts Hkx.
              simpl.
              destruct (v' =P x); subst; auto.
-             rewrite Hkt // in H0.
+             rewrite Hkt // in H.
           -- rewrite /α_equivalent /= update_identity fsetU_after_fsetD.
              apply α_equivalent'_supermap with (R__sub := 1__(FV t)); cycle 1.
              { apply α_equivalent_symmetric, substitution_law1. rewrite Hvt //. }
@@ -3982,6 +3980,13 @@ Module AlphaFacts (Import M : Alpha).
              destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt in Hkx; inverts Hkx.
              destruct (x =P v'); subst; auto.
       + transitivity u; auto.
+  Qed.
+
+  Lemma trad_α_reflexive :
+    forall t, t =_α t.
+  Proof.
+    introv.
+    apply α_equivalent_correct. reflexivity.
   Qed.
 
   Lemma trad_α_symmetric :
