@@ -703,3 +703,36 @@ Proof.
   assert (y ∈ domm m) as H'my. { apply (rwP dommP). eauto. }
   apply Hdisj in H'ny. rewrite H'my // in H'ny.
 Qed.
+
+Lemma fsetU_after_fsetD :
+  forall (A : ordType) (s : {fset A}) (x : A),
+     (s :\ x) ∪ fset1 x = s ∪ fset1 x.
+Proof.
+  intros.
+  apply eq_fset. intros k.
+  rewrite !in_fsetU in_fsetD in_fset1.
+  destruct (k =P x), (k ∈ s) eqn:Hks; subst; auto.
+Qed.
+
+Lemma fsetD_after_fsetU :
+  forall (A : ordType) (s : {fset A}) (x : A),
+    (s ∪ fset1 x) :\ x = s :\ x.
+Proof.
+  intros.
+  apply eq_fset. intros k.
+  rewrite !in_fsetD in_fsetU in_fset1.
+  destruct (k =P x), (k ∈ s) eqn:Hks; subst; auto.
+Qed.
+
+Lemma unionm_set_switch :
+  forall (A : ordType) (B : Type) (m1 m2 : {fmap A → B}) (k : A) (v : B),
+    k ∉ domm m1 ->
+    unionm (setm m1 k v) m2 = unionm m1 (setm m2 k v).
+Proof.
+  introv Hknm1.
+  apply eq_fmap. intros x.
+  rewrite !unionmE !setmE.
+  destruct (x =P k); subst; auto.
+  apply (rwP dommPn) in Hknm1.
+  rewrite Hknm1 //.
+Qed.

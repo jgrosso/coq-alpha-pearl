@@ -4,7 +4,6 @@
   - Improve names of lemmas/theorems/etc.
   - Remove dead code.
   - Break up into separate files?
-  - Implement custom printing for notations.
   - Improve compilation speed.
   - Improve evaluation speed.
   - Set up extraction. *)
@@ -839,7 +838,7 @@ Module AlphaFacts (Import M : Alpha).
     eapply α_equivalent'_bijection_includes_all_FV; eauto.
   Qed.
 
-  Lemma α_equivalent_implies_same_FV :
+  Lemma FV_respects_α_equivalence :
     forall t u,
       t ≡_α u ->
       FV u = FV t.
@@ -1000,6 +999,18 @@ Module AlphaFacts (Import M : Alpha).
     - apply α_equivalent_reflexive.
     - apply α_equivalent_symmetric.
     - apply α_equivalent_transitive.
+  Qed.
+
+  Add Parametric Relation : term α_equivalent
+      reflexivity proved by α_equivalent_reflexive
+      symmetry proved by α_equivalent_symmetric
+      transitivity proved by α_equivalent_transitive
+      as α_equivalent_rel.
+
+  Add Parametric Morphism : FV
+      with signature α_equivalent ==> eq as FV_morph.
+  Proof.
+    introv Hα. apply FV_respects_α_equivalence. symmetry. auto.
   Qed.
 
   (** Since Coq doesn't directly support quotient types, we're representing "Tm^α(X)" as "Tm(X)" and manually proving that functions respect "≡α". *)
@@ -1342,7 +1353,7 @@ Module AlphaFacts (Import M : Alpha).
         apply (rwP codommP). eauto. }
       assert (v ∈ codomm_Tm_set g) as Hℛgv.
       { apply (rwP codomm_Tm_setP). exists y__g.
-        apply α_equivalent_implies_same_FV in H'fgx.
+        apply FV_respects_α_equivalence in H'fgx.
         rewrite H'fgx. split; auto.
         apply (rwP codommP). eauto. }
       rewrite Hℛfv Hℛgv //.
@@ -1828,7 +1839,7 @@ Module AlphaFacts (Import M : Alpha).
       { rewrite /α_equivalent /= update_identity -/z0 -/z1 -/X.
         apply α_equivalent'_supermap with (R__sub := 1__X); auto. }
       transitivity (abstraction z1 (⦇(⦇f⦈ ∘ g)[s,variable z1]⦈ t)).
-      { apply α_equivalent_implies_same_FV in H'.
+      { apply FV_respects_α_equivalence in H'.
         rewrite /α_equivalent /= update_identity -/z0 -/z1 H' -/X.
         apply α_equivalent'_supermap with (R__sub := 1__X); auto.
         rewrite /X -H'.
@@ -2100,7 +2111,7 @@ Module AlphaFacts (Import M : Alpha).
       FV (t[x⟵u]) = FV t.
   Proof.
     introv Hnxt.
-    apply α_equivalent_implies_same_FV.
+    apply FV_respects_α_equivalence.
     symmetry. apply substitution_law1. auto.
   Qed.
 
@@ -3320,136 +3331,31 @@ Module AlphaFacts (Import M : Alpha).
       | abstraction _ t => term_depth t
       end.
 
-  Section hs_subst'.
-    #[local] Reserved Notation "'⟦' N '//' x '⟧' M"
-      (at level 40, N at level 200, x at level 200, format "'⟦' N // x '⟧' M").
-
-    Equations hs_subst' (M N : term) x : { t : term | term_depth t < term_depth M + term_depth N } by wf (term_depth M) lt :=
-    | variable a, N, x =>
-      if x == a
-      then exist _ N _
-      else exist _ (variable a) _
-    | application P Q, N, x with (⟦N//x⟧P), (⟦N//x⟧Q) => {
-        | exist _ P' _, exist _ Q' _ => exist _ (application P' Q') _ }
-    | abstraction y P, N, x with (x == y) => {
-        | true => exist _ (abstraction x P) _
-        | false with ((y ∉ FV N) || (x ∉ FV P)) => {
-            | true with (⟦N//x⟧P) => {
-                | exist _ P' _ => exist _ (abstraction y P') _ }
-            | false with Fresh (FV (application N P)) => {
-                | z with (⟦variable z//y⟧P) => {
-                    | exist _ P' _ with (⟦N//x⟧P') => {
-                        | exist _ P'' _ => exist _ (abstraction z P'') _ } } } } };
-    where "'⟦' N '//' x '⟧' M" := (hs_subst' M N x).
-    Next Obligation.
-      destruct N; simpl.
-      - replace ((term_depth P).+1 + (term_depth N).+1) with ((term_depth P).+2 + term_depth N); cycle 1.
-        { apply addSnnS. }
-        apply ltn_addr. rewrite ltnS //.
-      - replace ((term_depth P).+1 + (maxn (term_depth N1) (term_depth N2)).+1)
-          with ((term_depth P).+2 + maxn (term_depth N1) (term_depth N2)); cycle 1.
-        { apply addSnnS. }
-        apply ltn_addr. rewrite ltnS //.
-      - rewrite addn1 ltnSn //.
-    Qed.
-    Next Obligation.
-      rewrite -addn1. apply (rwP ltP). auto.
-    Qed.
-    Next Obligation.
-      apply (rwP ltP).
-      rewrite addSn. apply Lt.lt_n_S, (rwP ltP).
-      rewrite addn1 in i.
-      rewrite ltnS in i.
-      apply leq_ltn_trans with (term_depth P' + term_depth N).-1.
-      { rewrite -ltnS prednK // ltn_addr //. destruct P'; auto. }
-      apply leq_ltn_trans with ((term_depth P').-1 + term_depth N).
-      { destruct P'; auto. }
-      rewrite ltn_add2r.
-      destruct P'; auto.
-    Qed.
-    Next Obligation.
-      apply (rwP ltP).
-      rewrite ltnS leq_maxl //.
-    Qed.
-    Next Obligation.
-      apply (rwP ltP).
-      rewrite ltnS leq_maxr //.
-    Qed.
-    Next Obligation.
-      rewrite -!maxn_max.
-      apply (rwP ltP). apply (rwP ltP) in i, i0.
-      rewrite addSn. apply Lt.lt_n_S.
-      rewrite <- Max.plus_max_distr_r.
-      apply PeanoNat.Nat.max_lub_lt_iff.
-      split; apply PeanoNat.Nat.max_lt_iff; auto.
-    Qed.
-    Next Obligation.
-      destruct N; auto.
-    Qed.
-  End hs_subst'.
-
-  Definition hs_subst (M N : term) x := proj1_sig (hs_subst' M N x).
-
-  #[local] Notation "'⟦' N '//' x '⟧' M" :=
-    (hs_subst M N x)
-      (at level 40, N at level 200, x at level 200, format "'⟦' N // x '⟧' M").
-
-  Lemma hs_subst_unfold :
-    forall (M N : term) x,
-      ⟦N//x⟧M =
-        match M with
-        | variable a =>
-            if x == a
-            then N
-            else variable a
-        | application P Q =>
-            application (⟦N//x⟧P) (⟦N//x⟧Q)
-        | abstraction y P =>
-            if x == y
-            then abstraction x P
-            else if (y ∉ FV N) || (x ∉ FV P)
-                 then abstraction y (⟦N//x⟧P)
-                 else let z := Fresh (FV (application N P))
-                      in abstraction z (⟦N//x⟧⟦variable z//y⟧P)
-        end.
+  Lemma term_depth_respects_α_equivalent' :
+    forall R t u,
+      t ≡_α^R u ->
+      term_depth t = term_depth u.
   Proof.
-    unfold hs_subst.
-    intros.
-    funelim (hs_subst' M N x).
-    - simp hs_subst'. simpl.
-      destruct (x =P a); subst; auto.
-    - rewrite -Heqcall Heq //.
-    - rewrite Heq0 Heq1 -Heqcall Heq //.
-    - rewrite Heq0 Heq1 Heq2 -Heqcall Heq //.
-    - rewrite Heq0 -Heqcall Heq //.
+    introv Hα.
+    gen R u. induction t; intros; destruct u; inverts Hα; simpl; eauto.
+    f_equal.
+    apply (rwP andP) in H0 as [Hα1 Hα2].
+    rewrite (IHt1 _ _ Hα1) (IHt2 _ _ Hα2) //.
   Qed.
 
-  Lemma variable_substitution_as_α_equivalent'' :
-    forall t x y,
-      y ∉ FV t ->
-      t[x⟵variable y] ≡_α^(1__(FV t))⦅y,x⦆ t.
+  Lemma term_depth_respects_α_equivalent :
+    forall t u,
+      t ≡_α u ->
+      term_depth t = term_depth u.
   Proof.
-    introv Hnyt.
-    replace ((1__(FV t))⦅y,x⦆) with (((1__(FV t))⦅x,y⦆)ᵒ); cycle 1.
-    { rewrite update_converse.
-      - rewrite converse_identity //.
-      - apply partial_bijection_identity. }
-    simpl.
-    replace ((1__(FV t))[x,variable y]) with (mapm variable ((1__(FV t))⦅x,y⦆)); cycle 1.
-    { apply eq_fmap. intros k.
-      rewrite setmE !mapmE mkfmapfE unionmE remmE rem_valmE setmE /= mkfmapfE.
-      destruct (k =P x); subst; auto.
-      destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt //.
-      destruct (y =P k); subst; auto.
-      rewrite Hkt // in Hnyt. }
-    apply lemma7.
-    { apply partial_bijection_update, partial_bijection_identity. }
-    rewrite /Tm /in_mem /mem /=. apply (rwP fsubsetP). intros k Hkt.
-    apply (rwP dommP).
-    rewrite unionmE remmE rem_valmE mkfmapfE setmE Hkt /=.
-    destruct (k =P x); subst; simpl; eauto.
-    destruct (y =P k); subst; simpl; eauto.
-    rewrite Hkt // in Hnyt.
+    introv Hα.
+    eapply term_depth_respects_α_equivalent'; eauto.
+  Qed.
+
+  Add Parametric Morphism : term_depth
+      with signature α_equivalent ==> eq as term_depth_morph.
+  Proof.
+    apply term_depth_respects_α_equivalent.
   Qed.
 
   Implicit Type bound : {fset 𝒱}.
@@ -3507,77 +3413,6 @@ Module AlphaFacts (Import M : Alpha).
     - rewrite fdisjointUr in Hdisj. apply (rwP andP) in Hdisj as [Hdisj1 Hdisj2].
       rewrite IHt1 // IHt2 //.
   Qed.
-
-  Lemma term_depth_respects_α_equivalence :
-    forall R t u,
-      t ≡_α^R u ->
-      term_depth t = term_depth u.
-  Proof.
-    introv Hα.
-    gen R u. induction t; intros; destruct u; inverts Hα; simpl; eauto.
-    f_equal.
-    apply (rwP andP) in H0 as [Hα1 Hα2].
-    rewrite (IHt1 _ _ Hα1) (IHt2 _ _ Hα2) //.
-  Qed.
-
-  Lemma term_depth_lift_variable_substitution :
-    forall f t,
-      (forall t, t ∈ codomm f -> term_depth t = 1) ->
-      term_depth (⦇f⦈ t) = term_depth t.
-  Proof.
-    introv Hf.
-    gen f. induction t; intros; simpl in *; auto.
-    - f_equal.
-      apply IHt. intros u Hf'.
-      apply (rwP codommP) in Hf' as [x Hx].
-      rewrite setmE in Hx.
-      destruct (x =P s); subst.
-      + inverts Hx. auto.
-      + apply Hf, (rwP codommP). eauto.
-    - destruct (getm f s) eqn:Hfs; auto.
-      apply Hf, (rwP codommP). eauto.
-  Qed.
-
-  (*
-  Notation "'`' x" := (variable x) (at level 0, only printing, format "'`' x").
-
-  Lemma two_simultaneous_substitutions :
-    forall t u (v : term) x y,
-      ⦇(1__(FV t))[x,u][y,v]⦈ t ≡_α t[x⟵u][y⟵v].
-  Proof.
-    intros.
-    gen u v x y. induction t; intros.
-    - simpl.
-      set (z1 := Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u]))).
-      set (z2 := Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u][y,v]))).
-      set (z3 := (Fresh
-                    (codomm_Tm_set
-                       ((1__(FV (⦇(1__(FV t :\ s))[x,u][s,variable z1]⦈ t) :\ z1))[y,v])))).
-      rewrite /α_equivalent /=.
-   *)
-
-  (*
-  Lemma term_depth_lift_substitution :
-    forall f t,
-      t ∈ Tm (domm f) ->
-      term_depth (⦇f⦈ t) <= term_depth t + maximum (map term_depth (codomm f)).
-  Proof.
-    intros.
-    gen f. induction t; intros; simpl in *.
-    - rewrite addSn.
-      set (f' := f[s,variable (Fresh (codomm_Tm_set f))]).
-      cut (term_depth (⦇f'⦈ t) <= term_depth t + maximum (map term_depth (codomm f)) : Prop); auto.
-      assert (maximum (map term_depth (codomm f')) <= maximum (map term_depth (codomm f))).
-      { apply maximum_leq. introv Hn.
-        apply (rwP mapP) in Hn as [u Hu]. subst.
-        apply (rwP (@codommP _ _ f' _)) in Hu as [k Hk].
-        subst f'. rewrite setmE in Hk.
-        destruct (k =P s); subst.
-        - inverts Hk.
-          simpl.
-          rewrite /in_mem /mem /Tm /= in H.
-          simpl in H.
-   *)
 
   Fixpoint have_same_structure t u : bool :=
     match t, u with
@@ -3735,102 +3570,24 @@ Module AlphaFacts (Import M : Alpha).
       + reflexivity.
   Qed.
 
-  (*
-  Lemma foo :
-    forall f g t u,
-      FV t ⊆ domm f ->
-      FV u ⊆ domm g ->
-      preserves_structure f ->
-      preserves_structure g ->
-      codomm_Tm_set f = codomm_Tm_set g ->
-      have_same_structure t u ->
-      bound_variables (⦇f⦈ t) = bound_variables (⦇g⦈ u).
-  Proof.
-    introv Htf Hug Hf Hg Hfg Htu.
-    gen f g u. induction t; intros; destruct u; inverts Htu; simpl in *.
-    - apply (rwP fsubsetP) in Htf, Hug.
-      rewrite -Hfg.
-      f_equal.
-      apply IHt; auto.
-      + apply (rwP fsubsetP).
-        intros x Hxt.
-        rewrite domm_set in_fsetU in_fset1.
-        destruct (x =P s); subst; auto.
-        apply (introF eqP) in n.
-        apply Htf.
-        rewrite in_fsetD in_fset1 n Hxt //.
-      + apply preserves_structure_update_substitution. auto.
-      + apply preserves_structure_update_substitution. auto.
-      + rewrite !codomm_update_substitution.
-        f_equal.
-        apply eq_fset. intros x.
-        destruct (x ∈ codomm_Tm_set (remm g s0)) eqn:Hx.
-        * apply (rwP codomm_Tm_setP) in Hx as (u' & Hxu' & Hu').
-          apply (rwP codommP) in Hu' as [k Hk].
-          rewrite remmE in Hk.
-          destruct (k =P s0); subst.
-          { inverts Hk. }
-          apply (rwP codomm_Tm_setP).
-          exists u'. split; auto.
-          apply (rwP codommP).
-          exists k.
-          rewrite remmE.
-      + apply (rwP fsubsetP).
-        intros x Hxu.
-        rewrite domm_set in_fsetU in_fset1.
-        destruct (x =P s0); subst; auto.
-        apply (introF eqP) in n.
-        apply Hug.
-        rewrite in_fsetD in_fset1 n Hxu //.
-  *)
-
-  (*
-  Lemma foo :
+  Lemma term_depth_lift_variable_substitution :
     forall f t,
-      FV t ⊆ domm f ->
       preserves_structure f ->
-      fdisjoint (codomm_Tm_set f) (bound_variables (⦇f⦈ t)).
+      term_depth (⦇f⦈ t) = term_depth t.
   Proof.
-    introv Htf Hf.
-    apply (rwP fdisjointP). introv Hxf.
-    apply (rwP negP). introv Hxt'.
-    apply (rwP fsubsetP) in Htf.
-    gen x f. induction t; intros; simpl in *.
-    - rewrite in_fsetU in_fset1 orbC in Hxt'. apply (rwP orP) in Hxt' as [Hxt'|Hxt'].
-      { apply (rwP eqP) in Hxt'. subst.
-        pose proof (Fresh_correct (codomm_Tm_set f)). rewrite Hxf // in H. }
-      apply IHt in Hxt'; auto.
-      + intros y Hyt.
-        apply (rwP dommP).
-        rewrite setmE.
-        destruct (y =P s); subst; eauto.
-        apply (introF eqP) in n.
-        apply (rwP dommP), Htf.
-        rewrite in_fsetD in_fset1 Hyt n //.
-      + intros u Huf'.
-        apply (rwP codommP) in Huf' as [k Hk].
-        rewrite setmE in Hk.
-        destruct (k =P s); subst.
-        * inverts Hk. eauto.
-        * apply Hf, (rwP codommP). eauto.
-      + apply (rwP codomm_Tm_setP) in Hxf as (u & Hxu & Huf).
-        apply Hf in Huf as [k Hk]. subst.
-        rewrite in_fset1 in Hxu. apply (rwP eqP) in Hxu. subst.
-  *)
-
-  (*
-  Lemma lift_substitution_removes_shadowing :
-    forall bound t,
-      fdisjoint bound (bound_variables (⦇1__(FV t)⦈ t)) ->
-      ~ has_shadowing' bound (⦇1__(FV t)⦈ t).
-  Proof.
-    introv Hbound Ht.
-    gen bound. induction t; intros; simpl in *.
-    - rewrite fdisjointUr in Hbound. apply (rwP andP) in Hbound as [Hbv Hfresh].
-      rewrite fdisjoints1 in Hfresh.
-      apply (rwP orP) in Ht as [Ht|Ht].
-      { rewrite Ht // in Hfresh. }
-   *)
+    introv Hf.
+    gen f. induction t; intros; simpl in *; auto.
+    - f_equal.
+      apply IHt. intros u Hf'.
+      apply (rwP codommP) in Hf' as [x Hx].
+      rewrite setmE in Hx.
+      destruct (x =P s); subst.
+      + inverts Hx. eauto.
+      + apply Hf, (rwP codommP). eauto.
+    - destruct (getm f s) eqn:Hfs; auto.
+      assert (t ∈ codomm f) as Hft. { apply (rwP codommP). eauto. }
+      apply Hf in Hft as [x Ht]. subst. auto.
+  Qed.
 
   Lemma has_shadowing'_overlap :
     forall bound t,
@@ -3854,7 +3611,7 @@ Module AlphaFacts (Import M : Alpha).
     - rewrite fdisjoints0 // in Hdisj.
   Qed.
 
-  Lemma TODO_name :
+  Lemma has_shadowing_only_with_extra_bound_variables :
     forall bound t,
       ~ has_shadowing t ->
       has_shadowing' bound t ->
@@ -3921,181 +3678,56 @@ Module AlphaFacts (Import M : Alpha).
     eauto.
   Qed.
 
-  Definition has_lift_substitution_bound_variable_shape (f : {fmap 𝒱 → 𝒱}) x :=
-    match n with
-    | 0 => emptym
-    | S n =>
-        exists f, x = Fresh (codomm f) /\
-
-  Lemma lift_substitution_removes_shadowing :
-    forall bound t,
-      ~ has_shadowing' bound (⦇1__(FV t)⦈ t).
-  Proof.
-    introv Ht.
-    gen bound. induction t using term_depth_ind; intros; simpl in *.
-    destruct t; simpl in *.
-    - apply (rwP orP) in Ht as [Ht|Ht].
-      + rewrite codomm_Tm_set_identity in Ht.
-
-
-  Lemma lift_substitution_removes_shadowing :
-    forall bound f t,
-      FV t ⊆ domm f ->
-      preserves_structure f ->
-      Fresh (codomm_Tm_set f) ∉ bound ->
-      ~ has_shadowing' bound (⦇f⦈ t).
-  Proof.
-    introv Htf Hf H Hft.
-    apply (rwP fsubsetP) in Htf.
-    gen bound f. induction t; intros; simpl in *.
-    - apply (rwP orP) in Hft as [Hft|Hft].
-      { rewrite Hft // in H. }
-      apply IHt in Hft; auto.
-      + intros x Hfx.
-        rewrite domm_set in_fsetU in_fset1.
-        destruct (x =P s); subst; auto.
-        apply (introF eqP) in n.
-        apply Htf. rewrite in_fsetD in_fset1 Hfx n //.
-      + apply preserves_structure_update_substitution. auto.
-      + rewrite in_fsetU in_fset1 negb_or.
-        rewrite <- (rwP andP). split.
-        * rewrite codomm_update_substitution.
-
-  Lemma lift_substitution_removes_shadowing :
+  Lemma lift_substitution_cannot_decrease_term_depth :
     forall f t,
-      FV t ⊆ domm f ->
-      preserves_structure f ->
-      ~ has_shadowing (⦇f⦈ t).
+      t ∈ Tm (domm f) ->
+      term_depth t <= term_depth (⦇f⦈ t).
   Proof.
-    unfold has_shadowing.
-    introv Htf Hf Hft.
+    introv Htf.
+    rewrite /Tm /in_mem /= in Htf. apply (rwP fsubsetP) in Htf.
     gen f. induction t; intros; simpl in *.
-    - rewrite fset0U in Hft.
-      destruct t; simpl in *.
-      + rewrite in_fset1 in Hft.
-        apply (rwP orP) in Hft as [Hft|Hft].
-        * rewrite codomm_update_substitution /= in Hft.
-          apply (rwP eqP) in Hft.
-          pose proof Fresh_correct (codomm_Tm_set (remm f s) ∪ {Fresh (codomm_Tm_set f)}) as HFresh.
-          rewrite Hft in_fsetU in_fset1 eq_refl orbT // in HFresh.
-        * rewrite codomm_update_substitution /= in Hft.
-          destruct (s ∈ domm f) eqn:Hfs.
-          { pose proof Fresh_correct (codomm_Tm_set (remm f s) ∪ {Fresh (codomm_Tm_set f)}) as HFresh.
-            rewrite Hft in_fsetU in_fset1 eq_refl orbT // in HFresh. }
+    - apply IHt. introv Hxt.
+      rewrite domm_set in_fsetU in_fset1.
+      destruct (x =P s); subst; auto.
+      apply (introF eqP) in n.
+      apply Htf.
+      rewrite in_fsetD in_fset1 Hxt n //.
+    - rewrite gtn_max !ltnS !leq_max.
+      rewrite <- (rwP andP). split.
+      + rewrite IHt1 //. introv Hx. apply Htf. rewrite in_fsetU Hx //.
+      + rewrite IHt2 ?orbT //. introv Hx. apply Htf. rewrite in_fsetU Hx orbT //.
+    - destruct (getm f s) eqn:Hfs; auto.
+      destruct t; auto.
+  Qed.
 
-
-
-
-    introv Hft Hf H.
-    gen f. induction t; intros; simpl in *.
-    - apply IHt with (f := f[s,variable (Fresh (codomm_Tm_set f))]).
-      + apply (rwP fsubsetP). intros x Hxt.
-        apply (rwP dommP).
-        rewrite setmE.
-        destruct (x =P s); subst; eauto.
-        apply (rwP fsubsetP) in Hft.
-        assert (x ∈ FV t :\ s).
-        { apply (introF eqP) in n. rewrite in_fsetD in_fset1 Hxt n //. }
-        apply (rwP dommP). auto.
-      + intros u Hf'u.
-        apply (rwP codommP) in Hf'u as [k Hf'k].
-        rewrite setmE in Hf'k.
-        destruct (k =P s); subst.
-        * inverts Hf'k. eauto.
-        * apply Hf, (rwP codommP). eauto.
-      + erewrite has_shadowing'_fsetU; eauto.
-        apply (rwP fdisjointP). intros x Hx.
-        rewrite in_fset1 in Hx. apply (rwP eqP) in Hx. subst.
-  *)
-
-  (*
-  Lemma α_equivalent_lift_subst :
-    forall f t u,
-      FV t ⊆ domm f ->
-      t ≡_α u ->
-      ⦇f⦈ t = ⦇f⦈ u.
-  Proof.
-    unfold α_equivalent.
-    introv H𝒟f Hα.
-    gen f u. induction t; intros; destruct u; inverts Hα; simpl; f_equal.
-    - erewrite IHt with (u := u[s⟵variable s0]).
-      +
-  *)
-
-  (*
-  Lemma foo :
-  forall x y z a t,
-    t[x⟵variable y][z⟵variable a] ≡_α ⦇(1__(FV t))[x,variable y][z,variable a]⦈ t.
-  Proof.
-    intros.
-    destruct (x ∈ FV t) eqn:Hxt.
-    - rewrite FV_after_substitute //.
-      Search lift_substitution.
-*)
-
-  (*
   Lemma variable_substitution_as_α_equivalent''' :
     forall t x y,
-      t[x⟵variable y] ≡_α^(1__(FV t))⦅y,x⦆ t.
+      y ∉ FV t ->
+      t[x⟵variable y] ≡_α^(1__(FV (t[x⟵variable y]) :\ y))⦅y,x⦆ t.
   Proof.
-    intros.
-    remember (term_depth t).
-    gen t. induction n; intros; destruct t; inverts Heqn.
-    - simpl in *.
-      set (z := Fresh (codomm_Tm_set ((mapm variable (identity (FV t :\ s))) [x, (variable y)]))).
-      cut (⦇(1__(FV t :\ s))[x,variable y][s,variable z]⦈ t ≡_α^(1__(FV t :\ s))⦅y,x⦆⦅z,s⦆ t : Prop); auto.
-      assert (forall u, term_depth t = term_depth u ->
-                   ⦇(1__(FV u))[x,variable y]⦈ u ≡_α^(1__(FV u))⦅y,x⦆ u); auto.
-      simpl. (* TODO Rewrite as ⟵'s *) apply variable_substitution_as_α_equivalent'.
-
-
-
-
-    replace ((1__(FV t))⦅y,x⦆) with (((1__(FV t))⦅x,y⦆)ᵒ); cycle 1.
+    introv Hnyt.
+    replace ((1__(FV (t[x⟵variable y]) :\ y))⦅y,x⦆) with (((1__(FV t))⦅x,y⦆)ᵒ); cycle 1.
     { rewrite update_converse.
       - rewrite converse_identity //.
+        apply eq_fmap. intros k.
+        rewrite !unionmE !remmE !rem_valmE !setmE !mkfmapfE /= !in_fsetD !in_fset1.
+        destruct (x ∈ FV t) eqn:Hxt.
+        + rewrite FV_after_substitute // !in_fsetU !in_fsetD !in_fset1.
+          destruct (k =P y); subst; auto.
+          destruct (k =P x); subst.
+          { rewrite Hxt eq_refl //. }
+          destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt //.
+        + rewrite FV_noop_substitute; cycle 1.
+          { rewrite Hxt //. }
+          destruct (k =P y); subst; auto.
       - apply partial_bijection_identity. }
-    apply α_equivalent'_with_behaviorally_identical_maps' with (R := (1__(FV t))[x,y]).
-    { intros x' y' Hx'y' Hx' Hy'.
-      rewrite update_converse; cycle 1.
-      { apply partial_bijection_identity. }
-      rewrite /fmap_to_Prop setmE mkfmapfE in Hx'y'.
-      rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE converse_identity mkfmapfE /=.
-      destruct (x ∈ FV t) eqn:Hxt.
-      - rewrite FV_after_substitute // in_fsetU in_fsetD /= !in_fset1 in Hx'.
-        apply (rwP orP) in Hx' as [Hx'|Hx'].
-        + apply (rwP andP) in Hx' as [Hx'nx Hx't].
-          apply negbTE in Hx'nx.
-          rewrite Hx'nx Hx't in Hx'y'. inverts Hx'y'.
-          destruct (y' =P y); subst.
-          *
-
-
-
-    apply α_equivalent'_supermap with (R__sub := (1__(FV t))[x,y]).
-    { introv Hkv.
-      rewrite setmE mkfmapfE in Hkv.
-      rewrite update_converse; cycle 1.
-      { apply partial_bijection_identity. }
-      rewrite unionmE remmE rem_valmE setmE converse_identity mkfmapfE /=.
-      destruct (k =P y); subst.
-      - destruct (y =P x); subst; auto.
-        rewrite Hnyt in Hkv. inverts Hkv. simpl.
-
-
-
-    eassert (⦇(mapm variable (identity (FV t)))[x,variable y]⦈ t ≡_α^_ ⦇mapm variable ((1__(FV t))⦅x,y⦆)⦈ t).
-    { apply lift_substitution_indistinguishable_substitutions'.
-      - rewrite /Tm /in_mem /mem /=. apply (rwP fsubsetP). intros k Hkt.
-        rewrite in_fsetI domm_map domm_union domm_set domm_map domm_rem domm_mkfmapf !in_fsetU in_fset1 in_fset in_fsetD domm_mkfmap mem_seq1 Hkt orbT /=.
-        destruct (k =P x); subst; auto.
-        rewrite orbF.
-        apply (rwP dommP).
-        rewrite rem_valmE mkfmapfE Hkt.
-        destruct (y =P k); subst; eauto.
-
-
-
+    replace ((1__(FV t))[x,variable y]) with (mapm variable ((1__(FV t))⦅x,y⦆)); cycle 1.
+    { apply eq_fmap. intros k.
+      rewrite setmE !mapmE mkfmapfE unionmE remmE rem_valmE setmE /= mkfmapfE.
+      destruct (k =P x); subst; auto.
+      destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt //.
+      destruct (y =P k); subst; auto.
+      rewrite Hkt // in Hnyt. }
     apply lemma7.
     { apply partial_bijection_update, partial_bijection_identity. }
     rewrite /Tm /in_mem /mem /=. apply (rwP fsubsetP). intros k Hkt.
@@ -4105,100 +3737,259 @@ Module AlphaFacts (Import M : Alpha).
     destruct (y =P k); subst; simpl; eauto.
     rewrite Hkt // in Hnyt.
   Qed.
-*)
 
-  Lemma hs_subst_correct :
-    forall M N x,
-      ⟦N//x⟧M ≡_α M[x⟵N].
+  (* TODO Use throughout this file? *)
+  (** See https://www.sciencedirect.com/science/article/pii/S1571066116300354. *)
+  Definition α_compatible_predicate (P : term -> Prop) : Prop :=
+    forall t u, t ≡_α u -> P t -> P u.
+
+  (** See https://www.sciencedirect.com/science/article/pii/S1571066116300354. *)
+  Theorem term_α_ind :
+    forall P : term -> Prop,
+      α_compatible_predicate P ->
+      (forall x, P (variable x)) ->
+      (forall t u, P t -> P u -> P (application t u)) ->
+      (exists s : {fset 𝒱}, forall t x, x ∉ s -> P t -> P (abstraction x t)) ->
+      forall t, P t.
   Proof.
-    unfold α_equivalent.
-    intros.
-    induction M; simpl in *.
-    - rewrite hs_subst_unfold.
-      destruct (x =P s); subst.
-      + rewrite /update_substitution setmxx /=.
-        set (z := Fresh _).
-        set (m := setm (1__(FV M :\ s)) s (variable z)).
-        replace (⦇m⦈ M) with (M[s⟵variable z]); cycle 1.
-        { subst m. rewrite /update_substitution /= !mapm_mkfmapf /= /comp /=.
-          f_equal. apply eq_fmap. intros x.
-          rewrite !setmE.
-          destruct (x =P s); subst; auto. apply (introF eqP) in n.
-          rewrite !mkfmapfE in_fsetD in_fset1 n //. }
-        replace ((identity (FV M :\ s))⦅s,z⦆) with (((1__(FV M))⦅z,s⦆)ᵒ); cycle 1.
-        { apply eq_fmap. intros x.
-          rewrite !update_converse; cycle 1.
-          { apply partial_bijection_identity. }
-          rewrite converse_identity !unionmE !remmE !setmE !rem_valmE !mkfmapfE !in_fsetD !in_fset1.
-          destruct (x =P s); subst; auto. }
-        apply α_equivalent'_converse.
-        { apply partial_bijection_update, partial_bijection_identity. }
-        apply variable_substitution_as_α_equivalent'.
-        subst z.
-        rewrite codomm_Tm_set_update_identity.
-        pose proof Fresh_correct (FV M :\ s :\ s ∪ FV N).
-        rewrite in_fsetU !in_fsetD !in_fset1 /= negb_or !negb_and negbK in H.
-*)
-
-  Inductive trad_α' (Γ : {fset 𝒱}) : term -> term -> Prop :=
-  | trad_α'_var : forall x, x ∈ Γ -> trad_α' Γ (variable x) (variable x)
-  | trad_α'_abs : forall x t u, trad_α' Γ t u -> trad_α' Γ (abstraction x t) (abstraction x u)
-  | trad_α'_app : forall t1 t2 u1 u2, trad_α' Γ t1 u1 -> trad_α' Γ t2 u2 -> trad_α' Γ (application t1 t2) (application u1 u2)
-  | trad_α'_renaming :
-      forall v v' t,
-        FV t ⊆ (Γ ∪ {v}) ->
-        v <> v' ->
-        v' ∉ Γ ->
-        trad_α' Γ (abstraction v t) (abstraction v' (t[v⟵variable v']))
-  (* | trad_α'_trans : forall t u (v : term), trad_α' Γ t u -> trad_α' Γ u v -> trad_α' Γ t v *).
-
-  #[local] Hint Constructors trad_α'.
-
-  Definition trad_α t u := exists Γ, trad_α' Γ t u.
-
-  #[local] Infix "=_α" := trad_α (at level 40).
-
-  (*
-  Lemma trad_α'_context :
-    forall Γ Γ' t u,
-      Γ ⊆ Γ' ->
-      trad_α' Γ t u ->
-      trad_α' Γ' t u.
-  Proof.
-    introv HΓ Hα.
-    gen Γ Γ' u. induction t; intros;
-    destruct u; inverts Hα; eauto.
-    - apply trad_α'_renaming; auto.
-      + apply (rwP fsubsetP). intros x Hx.
-        apply (rwP fsubsetP) in HΓ, H3.
-        rewrite in_fsetU in_fset1 orbC.
-        destruct (x =P s); subst; auto.
-        apply (introF eqP) in n.
-        apply H3 in Hx.
-        apply HΓ.
-        rewrite in_fsetU in_fset1 n orbF // in Hx.
-      +
+    intros P HP Hvar Happ [s Habs] t.
+    induction t using term_depth_ind; destruct t; auto.
+    - pose proof Fresh_correct (s ∪ FV t) as HFresh.
+      rewrite in_fsetU negb_or in HFresh.
+      apply (rwP andP) in HFresh as [HsFresh HtFresh].
+      apply HP with (abstraction (Fresh (s ∪ FV t)) (t[s0⟵variable (Fresh (s ∪ FV t))])).
+      + apply variable_substitution_as_α_equivalent'''. auto.
+      + apply Habs, H; auto.
+        rewrite /= term_depth_lift_variable_substitution //.
+        apply preserves_structure_update_substitution, identity_preserves_structure.
+    - apply Happ; apply H; rewrite /= ltnS leq_max leqnn ?orbT //.
   Qed.
-  *)
+
+  #[local] Reserved Infix "=_α" (at level 40).
+
+  Inductive trad_α : term -> term -> Prop :=
+  | trad_α_var : forall x,
+      trad_α (variable x) (variable x)
+  | trad_α_abs : forall x t u,
+      trad_α t u -> trad_α (abstraction x t) (abstraction x u)
+  | trad_α_app : forall t1 t2 u1 u2,
+      trad_α t1 u1 -> trad_α t2 u2 -> trad_α (application t1 t2) (application u1 u2)
+  | trad_α_renaming :
+      forall v v' t,
+        v <> v' ->
+        v' ∉ FV t ->
+        trad_α (abstraction v t) (abstraction v' (t[v⟵variable v']))
+  | trad_α_trans : forall t u (v : term), trad_α t u -> trad_α u v -> trad_α t v
+
+  where "x '=_α' y" := (trad_α x y).
+
+  #[local] Hint Constructors trad_α : core.
 
   Lemma trad_α_reflexive :
     forall t, t =_α t.
   Proof.
     introv.
-    induction t.
-    - destruct IHt as [Γ IHt].
-      econstructor. eauto.
-    - destruct IHt1 as [Γ1 IHt1], IHt2 as [Γ2 IHt2].
-      apply trad_α'_app.
-      exists (Γ1 ∪ Γ2). constructor.
-      +
+    induction t; auto.
+  Qed.
 
-  Theorem α_equivalent'_correct :
-    forall t u,
-      (exists X, t ≡_α^(1__X) u) <-> trad_α t u.
+  Lemma α_equivalent'_remove_noop_update :
+    forall R t u x y,
+      x ∉ FV t ->
+      y ∉ FV u ->
+      t ≡_α^(R⦅x,y⦆) u ->
+      t ≡_α^R u.
   Proof.
-    intros.
-    split; intros.
-    -
-*)
+    introv HnRx HnR'y Hα.
+    apply α_equivalent'_with_behaviorally_identical_maps with (R := R⦅x,y⦆); auto. intros x' y' HR'x' Hx't.
+    rewrite /fmap_to_Prop unionmE remmE rem_valmE setmE /= in HR'x'.
+    rewrite /fmap_to_Prop.
+    destruct (x' =P x); subst.
+    { rewrite Hx't // in HnRx. }
+    destruct (getm R x') eqn:HRx'; auto.
+    destruct (y =P s); subst; inverts HR'x'. auto.
+  Qed.
+
+  Lemma α_equivalent_abstractions :
+    forall x y t u,
+      abstraction x t ≡_α abstraction y u ->
+      t[x⟵variable y] ≡_α u.
+  Proof.
+    introv Hα.
+    destruct (x =P y); subst; auto.
+    { transitivity t.
+      - rewrite substitution_id //.
+      - rewrite /α_equivalent /= update_identity fsetU_after_fsetD in Hα.
+        apply α_equivalent'_implies_α_equivalent. eauto. }
+    apply not_eq_sym, (introF eqP) in n.
+    assert (y ∉ FV t) as Hynt.
+    { apply FV_respects_α_equivalence in Hα.
+      cut (y ∉ FV t ∪ {x} = true).
+      { intros H. rewrite in_fsetU in_fset1 negb_or in H.
+        apply (rwP andP) in H as [Hynt Hynx]. auto. }
+      simpl in Hα.
+      rewrite -fsetU_after_fsetD -Hα in_fsetU in_fsetD !in_fset1 eq_refl n //. }
+    destruct (x ∈ FV t) eqn:Hxt; cycle 1.
+    - assert (y ∉ FV u) as Hynu.
+      { rewrite /α_equivalent /= in Hα.
+        apply α_equivalent'_implies_related_FV in Hα; cycle 1.
+        { apply partial_bijection_update, partial_bijection_identity. }
+        rewrite Hα.
+        apply (introN pimfsetP). intros [z Hzt].
+        rewrite unionmE remmE rem_valmE setmE mkfmapfE /= in_fsetD in_fset1 Hzt in H.
+        destruct (z =P x); subst.
+        { rewrite Hzt // in Hxt. }
+        simpl in H.
+        destruct (y =P z); subst; inverts H.
+        rewrite Hzt // in Hynt. }
+      transitivity t.
+      { rewrite substitution_law1 // Hxt //. }
+      rewrite /α_equivalent /= in Hα.
+      apply α_equivalent'_remove_noop_update in Hα; auto; cycle 1.
+      { rewrite Hxt //. }
+      apply α_equivalent'_supermap with (R__sub := 1__(FV t :\ x)); auto. intros k v Hkv.
+      rewrite mkfmapfE in_fsetD in_fset1 in Hkv.
+      rewrite mkfmapfE.
+      destruct (k =P x); subst; auto.
+      rewrite Hxt in Hkv; inverts Hkv.
+    - rewrite /α_equivalent /= in Hα.
+      rewrite /α_equivalent FV_after_substitute //=.
+      replace (1__(FV t :\ x ∪ {y}))
+        with (((1__(FV t :\ x))⦅y,x⦆);;((1__(FV t :\ x))⦅x,y⦆)); cycle 1.
+      { apply eq_fmap. intros k.
+        rewrite mkfmapfpE domm_union domm_rem mkfmapfE in_fsetU domm_mkfmap mem_seq1 unionmE remmE rem_valmE mkfmapfE in_fsetU !in_fsetD !in_fset1 setmE /=.
+        destruct (k =P y); subst.
+        - rewrite /= orbT unionmE remmE rem_valmE setmE mkfmapfE in_fsetD in_fset1 eq_refl //.
+        - destruct (k ∈ domm (rem_valm (1__(FV t :\ x)) x)) eqn:Hk'; rewrite Hk' /=.
+          + destruct (k =P x); subst; auto.
+            apply not_eq_sym, (introF eqP) in n0, n1.
+            destruct (k ∈ FV t) eqn:Hkt; auto.
+            rewrite /= n1 /= unionmE remmE rem_valmE setmE mkfmapfE in_fsetD in_fset1 /=.
+            rewrite eq_sym in n1.
+            rewrite n1 Hkt /= n0 //.
+          + apply negbT, (rwP dommPn) in Hk'.
+            rewrite rem_valmE mkfmapfE in_fsetD in_fset1 in Hk'.
+            destruct (k =P x); subst; auto.
+            apply not_eq_sym, (introF eqP) in n0, n1.
+            destruct (k ∈ FV t) eqn:Hkt; auto.
+            rewrite /= n1 // in Hk'. }
+      apply α_equivalent'_compose with (u := t); auto.
+      apply variable_substitution_as_α_equivalent'. auto.
+  Qed.
+
+  Lemma α_equivalent_applications :
+    forall t1 t2 u1 u2,
+      application t1 t2 ≡_α application u1 u2 ->
+      t1 ≡_α u1 /\ t2 ≡_α u2.
+  Proof.
+    introv Hα.
+    rewrite /α_equivalent /= in Hα.
+    apply (rwP andP) in Hα as [Hα1 Hα2].
+    split;
+    eapply α_equivalent'_with_behaviorally_identical_maps; try apply Hα1; try apply Hα2;
+    introv Hxy Hxt;
+    rewrite /fmap_to_Prop mkfmapfE in_fsetU Hxt ?orbT in Hxy; inverts Hxy;
+    rewrite /fmap_to_Prop mkfmapfE Hxt //.
+  Qed.
+
+  Lemma α_equivalent_variables :
+    forall x y,
+      variable x ≡_α variable y ->
+      x = y.
+  Proof.
+    introv Hα.
+    rewrite /α_equivalent /= in Hα.
+    apply (rwP getmP) in Hα.
+    rewrite mkfmapfE in_fset1 eq_refl in Hα.
+    inverts Hα. auto.
+  Qed.
+
+  Theorem α_equivalent_correct :
+    forall t u,
+      t ≡_α u <-> t =_α u.
+  Proof.
+    introv.
+    split; introv Hα.
+    - gen u. induction t using term_depth_ind; intros; destruct t, u; inverts Hα; auto.
+      + destruct (s =P s0); subst.
+        { apply α_equivalent_abstractions in H1.
+          constructor. apply H; auto.
+          transitivity (t[s0⟵variable s0]); auto. symmetry. apply substitution_id. }
+        apply not_eq_sym, (introF eqP) in n.
+        assert (s0 ∉ FV t) as Hs0nt.
+        { apply FV_respects_α_equivalence in H1. simpl in H1.
+          cut (s0 ∉ FV t ∪ {s} = true).
+          { intros Hgoal. rewrite in_fsetU in_fset1 negb_or in Hgoal.
+            apply (rwP andP) in Hgoal as [Hs0nt Hs0ns]. auto. }
+          rewrite -fsetU_after_fsetD -H1 in_fsetU in_fsetD !in_fset1 eq_refl n //. }
+        apply α_equivalent_abstractions in H1.
+        apply H in H1; cycle 1.
+        { rewrite term_depth_lift_variable_substitution //.
+          apply preserves_structure_update_substitution, identity_preserves_structure. }
+        apply trad_α_trans with (abstraction s0 (t[s⟵variable s0])); auto.
+        apply trad_α_renaming; auto.
+        apply not_eq_sym, (elimF eqP). auto.
+      + apply α_equivalent_applications in H1 as [Ht Hu].
+        constructor; apply H; auto;
+        rewrite ltnS leq_max leqnn ?orbT //.
+      + apply α_equivalent_variables in H1. subst. auto.
+    - induction Hα; simpl.
+      + reflexivity.
+      + rewrite /α_equivalent /= update_identity fsetU_after_fsetD.
+        apply α_equivalent'_supermap with (R__sub := 1__(FV t)); auto. introv Hkv.
+        rewrite mkfmapfE in Hkv.
+        rewrite mkfmapfE in_fsetU in_fset1.
+        destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt // in Hkv.
+      + rewrite /α_equivalent /=.
+        rewrite <- (rwP andP).
+        split;
+        eapply α_equivalent'_supermap with (R__sub := 1__(FV _)); eauto; introv Hkv;
+        rewrite mkfmapfE in Hkv;
+        rewrite mkfmapfE in_fsetU;
+        destruct (k ∈ FV t1) eqn:Hkt1, (k ∈ FV t2) eqn:Hkt2;
+        rewrite ?Hkt1 ?Hkt2 // in Hkv.
+      + destruct (v ∈ FV t) eqn:Hvt.
+        * symmetry. rewrite /α_equivalent /=.
+          rewrite FV_after_substitute // fsetD_after_fsetU.
+          replace (FV t :\ v :\ v') with (FV t :\ v); cycle 1.
+          { apply eq_fset. intros x.
+            rewrite !in_fsetD !in_fset1.
+            destruct (x =P v); subst.
+            - apply (introF eqP) in H. rewrite H //.
+            - destruct (x ∈ FV t) eqn:Hxt.
+              + destruct (x =P v'); subst; auto.
+                rewrite Hxt // in H0.
+              + destruct (x =P v'); subst; auto. }
+          apply variable_substitution_as_α_equivalent'. auto.
+        * transitivity (abstraction v' t);
+          rewrite /α_equivalent /=.
+          -- apply α_equivalent'_supermap with (R__sub := 1__(FV t)); cycle 1.
+             { apply α_equivalent_reflexive. }
+             intros k x Hkx.
+             rewrite mkfmapfE in Hkx.
+             rewrite unionmE remmE rem_valmE setmE mkfmapfE in_fsetD !in_fset1 /=.
+             destruct (k =P v); subst.
+             { rewrite Hvt // in Hkx. }
+             destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt in Hkx; inverts Hkx.
+             simpl.
+             destruct (v' =P x); subst; auto.
+             rewrite Hkt // in H0.
+          -- rewrite /α_equivalent /= update_identity fsetU_after_fsetD.
+             apply α_equivalent'_supermap with (R__sub := 1__(FV t)); cycle 1.
+             { apply α_equivalent_symmetric, substitution_law1. rewrite Hvt //. }
+             intros k x Hkx.
+             rewrite mkfmapfE in Hkx.
+             rewrite mkfmapfE in_fsetU in_fset1.
+             destruct (k ∈ FV t) eqn:Hkt; rewrite Hkt in Hkx; inverts Hkx.
+             destruct (x =P v'); subst; auto.
+      + transitivity u; auto.
+  Qed.
+
+  Lemma trad_α_symmetric :
+    forall t u,
+      t =_α u ->
+      u =_α t.
+  Proof.
+    intros t u Hα.
+    apply α_equivalent_correct. symmetry. apply α_equivalent_correct. auto.
+  Qed.
 End AlphaFacts.
