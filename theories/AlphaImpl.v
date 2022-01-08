@@ -45,7 +45,7 @@ Module AlphaString <: Alpha.
 
   Definition Fresh (s : {fset 𝒱}) : 𝒱 := Fresh_seq s.
 
-  Lemma Fresh_correct : forall s : {fset 𝒱}, Fresh s ∉ s.
+  Lemma HFresh : forall s : {fset 𝒱}, Fresh s ∉ s.
   Proof.
     unfold Fresh.
     introv.
@@ -81,7 +81,7 @@ Module AlphaNat <: Alpha.
 
   Definition Fresh (s : {fset 𝒱}) : 𝒱 := Fresh_seq s.
 
-  Lemma Fresh_correct : forall s : {fset 𝒱}, Fresh s ∉ s.
+  Lemma HFresh : forall s : {fset 𝒱}, Fresh s ∉ s.
   Proof.
     unfold Fresh.
     introv.
