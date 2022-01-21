@@ -354,7 +354,7 @@ Module AlphaFacts (Import M : Alpha).
     auto.
   Qed.
 
-  (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write...." *)
+  (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write Rᵒ...." *)
   Definition converse R : {fmap 𝒱 → 𝒱} := invm R.
 
   #[local] Notation "R 'ᵒ'" := (converse R) (at level 40).
@@ -419,7 +419,7 @@ Module AlphaFacts (Import M : Alpha).
     apply getm_inv. auto.
   Qed.
 
-  (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write...." *)
+  (** Page 3: "Given R ⊆ X × Y and S ⊆ Y × Z we write... R; S...." *)
   Definition compose R S : {fmap 𝒱 → 𝒱} :=
     mkfmapfp
       (fun k =>
@@ -473,7 +473,7 @@ Module AlphaFacts (Import M : Alpha).
     - eapply HStype. eauto.
   Qed.
 
-  (** Page 3: "Both operations are closed under partial bijections." *)
+  (** Page 3: "The set of partial bijections is closed under both operations." *)
   Lemma compose_closed_under_partial_bijection :
     forall R S,
       partial_bijection R ->
@@ -502,7 +502,7 @@ Module AlphaFacts (Import M : Alpha).
   Qed.
 
   (** Page 3: Lemma 1.1. *)
-  Lemma update_identity : forall X x, (1__X) ⦅x,x⦆ = 1__(X ∪ {x}).
+  Lemma update_identity : forall X x, (1__X)⦅x,x⦆ = 1__(X ∪ {x}).
   Proof.
     introv.
     apply eq_fmap. intros k.
@@ -572,13 +572,14 @@ Module AlphaFacts (Import M : Alpha).
 
   (** Page 3: Lemma 1.3. *)
   Lemma update_compose :
-    forall R S x y z k v,
-      getm (R⦅x,y⦆;;S⦅y,z⦆) k = Some v ->
-      getm (R;;S)⦅x,z⦆ k = Some v.
+    forall R S x y z a b,
+      (R⦅x,y⦆;;S⦅y,z⦆) a b ->
+      ((R;;S)⦅x,z⦆) a b.
   Proof.
+    rewrite /fmap_to_Prop.
     introv HR'S'.
     rewrite unionmE remmE rem_valmE setmE.
-    destruct (k =P x); subst.
+    destruct (a =P x); subst.
     - rewrite eq_refl /=. f_equal.
       rewrite mkfmapfpE in HR'S'.
       destruct (x ∈ domm (R⦅x,y⦆)) eqn:HR'x; rewrite HR'x // in HR'S'.
