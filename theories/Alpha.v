@@ -429,7 +429,6 @@ Module AlphaFacts (Import M : Alpha).
         end)
       (domm R).
 
-
   #[local] Notation "R ';;' S" := (compose R S) (at level 40, format "R ';;' S").
 
   Lemma domm_compose :
@@ -853,7 +852,6 @@ Module AlphaFacts (Import M : Alpha).
       rewrite in_fset1 in Hxt. apply (rwP eqP) in Hxt. subst.
       apply (rwP dommP). eauto.
   Qed.
-
 
   Lemma α_equivalent'_bijection_includes_all_FV' :
     forall R t u,
@@ -4272,6 +4270,12 @@ Module AlphaFacts (Import M : Alpha).
              destruct (x =P v'); subst; auto.
       + transitivity u; auto.
   Qed.
+
+  (* Defining a version with a non-Unicode name to make it easier to reference. *)
+  Definition alpha_equivalent_correct :
+    forall t u,
+      t ≡_α u <-> t =_α u :=
+    α_equivalent_correct.
 
   Lemma trad_α_reflexive :
     forall t, t =_α t.
