@@ -288,6 +288,8 @@ Module AlphaFacts (Import M : Alpha).
       + apply negbT, (rwP nandP) in H0 as [H|H]; apply negbTE in H; auto.
   Qed.
 
+  Arguments α_equivalent'P {_ _ _}.
+
   (** Page 3: "We now define ≡α^R ⊆ Tm(X) × Tm(Y)." *)
   Lemma α_equivalent'_type :
     forall R t u,
@@ -1144,6 +1146,26 @@ Module AlphaFacts (Import M : Alpha).
 
   #[local] Notation "'⦇' f '⦈'" := (lift_substitution f) (format "'⦇' f '⦈'").
 
+  Lemma α_equivalent_update' :
+    forall X Y R t u x y,
+      R ⊆ X × Y ->
+      x ∉ X ->
+      y ∉ Y ->
+      t ≡_α^R u ->
+      t ≡_α^(R⦅x,y⦆) u.
+  Proof.
+    introv HRtype HxnX HynY Hα.
+    apply α_equivalent'_supermap with (R__sub := R); auto. introv HRk.
+    apply (rwP andP) in HRtype as [HRX HRY].
+    apply (rwP fsubsetP) in HRX, HRY.
+    rewrite /fmap_to_Prop updateE.
+    destruct (k =P x); subst.
+    { exfalso. apply (rwP negP) in HxnX. apply HxnX, HRX, (rwP dommP). eauto. }
+    rewrite HRk.
+    destruct (y =P v); subst; auto.
+    exfalso. apply (rwP negP) in HynY. apply HynY, HRY, (rwP codommP). eauto.
+  Qed.
+
   Lemma α_equivalent_update :
     forall R t u x y,
       x ∉ domm R ->
@@ -1266,6 +1288,40 @@ Module AlphaFacts (Import M : Alpha).
   Qed.
 
   (** Page 5: Lemma 5. *)
+  #[program] Lemma lemma5' :
+    forall Y Y' R S f g,
+      R ⊆ domm f × domm g ->
+      S ⊆ Y × Y' ->
+      partial_bijection R ->
+      partial_bijection S ->
+      codomm_Tm_set f ⊆ Y ->
+      codomm_Tm_set g ⊆ Y' ->
+      (forall x x', R x x' -> getm f x `≡_α^S getm g x') ->
+      forall x y z z',
+        z ∉ Y ->
+        z' ∉ Y' ->
+        forall w w' : 𝒱, R⦅x,y⦆ w w' -> getm (f[x,variable z]) w `≡_α^(S⦅z,z'⦆) getm (g[y,variable z']) w'.
+  Proof.
+    introv HRtype HStype HRinj HSinj HfY HgY' HRα HnzT Hnz'Y' HR'w.
+    rewrite /fmap_to_Prop updateE in HR'w.
+    rewrite !setmE.
+    destruct (w =P x); subst.
+    - inverts HR'w.
+      rewrite !eq_refl.
+      apply (rwP getmP).
+      rewrite updateE eq_refl //.
+    - destruct (getm R w) eqn:HRw; cycle 1.
+      { inverts HR'w. }
+      destruct (y =P s); subst; inverts HR'w.
+      apply not_eq_sym, (introF eqP) in n0. rewrite n0.
+      pose proof HRw as H'Rw. apply HRα in H'Rw. inverts H'Rw.
+      rewrite <- (rwP is_subset_ofP) in HRtype.
+      apply HRtype in HRw as [Hfw Hα].
+      apply (rwP dommP) in Hfw as [t Hfw], Hα as [t' Hgw'].
+      rewrite -> Hfw, Hgw' in *.
+      eapply α_equivalent_update'; eauto.
+  Qed.
+
   #[program] Lemma lemma5 :
     forall R S f g,
       R ⊆ domm f × domm g ->
@@ -1319,6 +1375,9 @@ Module AlphaFacts (Import M : Alpha).
     destruct (x' =P x); subst; eauto.
   Qed.
 
+  Definition function_space_relation (X Y : Type) (f g : X -> Y) (R : X -> X -> bool) (S : Y -> Y -> bool) : Prop :=
+    forall x x' : X, R x x' -> S (f x) (g x').
+
   (** Page 4: Proposition 4. *)
   #[program] Proposition substitution'_preserves_α_congruence' :
     forall Fresh R S f g,
@@ -1327,35 +1386,31 @@ Module AlphaFacts (Import M : Alpha).
       partial_bijection R ->
       partial_bijection S ->
       (forall x x', R x x' -> getm f x `≡_α^S getm g x') ->
-      forall t u, t ≡_α^R u -> `⦇f⦈ Fresh t ≡_α^S `⦇g⦈ Fresh u.
+      function_space_relation (`⦇f⦈ Fresh) (`⦇g⦈ Fresh) (α_equivalent' R) (α_equivalent' S).
   Proof.
-    introv HFresh HRtype HRinj HSinj HRα Hα.
-    gen R S f g u. induction t; introv HRinj HSinj HRtype HRα Hα;
-    destruct u; inverts Hα.
-    - eapply IHt with (R := R⦅s,s0⦆); eauto.
-      + apply partial_bijection_update. auto.
-      + apply partial_bijection_update. auto.
-      + rewrite !domm_set /=. apply (rwP is_subset_ofP). intros x y HR'x.
-        rewrite /= !in_fsetU !in_fset1.
-        rewrite /fmap_to_Prop updateE in HR'x.
-        destruct (x =P s); subst.
-        { inverts HR'x. rewrite eq_refl //. }
-        destruct (getm R x) eqn:HRx; cycle 1.
-        { inverts HR'x. }
-        destruct (s0 =P s1); subst; inverts HR'x.
-        rewrite <- (rwP is_subset_ofP) in HRtype.
-        apply HRtype in HRx as [Hnxs Hns0y]. simpl in *. rewrite Hnxs Hns0y orbT //.
-      + introv HR'x. eapply lemma5; eauto; apply Fresh_correct.
-    - apply (rwP andP) in H0 as [Hα1 Hα2].
-      eapply IHt1 with (S := S) in Hα1; eauto.
-      eapply IHt2 with (S := S) in Hα2; eauto.
-      rewrite /= Hα1 Hα2 //.
-    - apply (rwP getmP) in H0.
-      pose proof H0 as HRs. apply HRα in HRs.
+    introv HFresh HRtype HRinj HSinj HRα.
+    intros t u Hα.
+    apply (rwP α_equivalent'P) in Hα.
+    dependent induction Hα generalizing f g S HRtype HSinj HRα.
+    { apply (rwP getmP) in H.
+      specialize HRα with x y.
       rewrite <- (rwP is_subset_ofP) in HRtype.
-      apply HRtype in H0 as [Hfs Hgs0].
-      simpl in *. apply (rwP dommP) in Hfs as [v Hfs], Hgs0 as [v' Hgs0].
-      rewrite -> Hfs, Hgs0 in *. auto.
+      pose proof H as HRx.
+      apply HRα in H.
+      apply HRtype in HRx as [Hfx Hgy].
+      apply (rwP dommP) in Hfx as [x' Hx'], Hgy as [y' Hy'].
+      simpl in *. rewrite -> Hx', -> Hy' in *. auto. }
+    { rewrite /= -(rwP andP). auto. }
+    assert (abstraction x t ≡_α^R abstraction y u) as H.
+    { apply (rwP α_equivalent'P). auto. }
+    set (z := Fresh0 (codomm_Tm_set f)). set (z' := Fresh0 (codomm_Tm_set g)).
+    eassert (forall x' x'', R⦅x,y⦆ x' x'' -> getm (f[x,variable z]) x' `≡_α^S⦅z,z'⦆ getm (g[y,variable z']) x'') as H'.
+    { apply lemma5; eauto. }
+    apply IHHα in H'; auto.
+    - apply partial_bijection_update. auto.
+    - apply update_type with (x := x) (y := y) in HRtype.
+      rewrite !domm_set ![(_ |: _)]fsetUC //.
+    - apply partial_bijection_update. auto.
   Qed.
 
   #[program] Proposition substitution_preserves_α_congruence' :
@@ -1469,7 +1524,7 @@ Module AlphaFacts (Import M : Alpha).
     - rewrite fsetIid //.
   Qed.
 
-  Theorem lift_substitution_respectsα_equivalence :
+  Theorem lift_substitution_respects_α_equivalence :
     forall f t u,
       t ∈ Tm (domm f) ->
       t ≡_α u ->
@@ -1509,39 +1564,41 @@ Module AlphaFacts (Import M : Alpha).
   Proof.
     introv HFresh Hfinj Hft.
     apply (rwP fsubsetP) in Hft.
-    gen f. induction t; introv Hfinj Hft; simpl in *.
-    - rewrite /= /update_substitution -mapm_setm -/update_substitution -update_converse //.
-      rewrite codomm_Tm_set_mapm_variable.
-      replace (setm f s (Fresh0 (codomm f))) with (f⦅s,Fresh0 (codomm f)⦆); cycle 1.
-      { apply eq_fmap. intros x.
+    gen f. induction t; introv Hfinj Hft.
+    - rename s into x.
+      set (z := Fresh0 (codomm_Tm_set (mapm variable f))).
+      rewrite [`⦇_⦈ _ _]/=.
+      rewrite /= /update_substitution -mapm_setm -/update_substitution -update_converse -/z //.
+      subst z. rewrite codomm_Tm_set_mapm_variable.
+      replace (setm f x (Fresh0 (codomm f))) with (f⦅x,Fresh0 (codomm f)⦆); cycle 1.
+      { apply eq_fmap. intros y.
         rewrite updateE setmE /=.
-        destruct (x =P s); subst; auto.
-        destruct (getm f x) eqn:Hfx; auto.
-        destruct (Fresh0 (codomm f) =P s0); subst; auto.
+        destruct (y =P x); subst; auto.
+        destruct (getm f y) eqn:Hfy; auto.
+        destruct (Fresh0 (codomm f) =P s); subst; auto.
         assert (Fresh0 (codomm f) ∈ codomm f) as HFreshℛf. { apply (rwP codommP). eauto. }
         pose proof HFresh (codomm f) as HnFresh. rewrite HFreshℛf // in HnFresh. }
       apply IHt; auto.
       + apply partial_bijection_update. auto.
-      + introv Hxt.
+      + intros s Hst.
         apply (rwP dommP).
         rewrite updateE.
-        destruct (x =P s); subst; simpl; eauto.
-        assert (x ∈ FV t :\ s) as Hxtns.
-        { apply (introF eqP) in n. rewrite in_fsetD in_fset1 n Hxt //. }
-        apply Hft, (rwP dommP) in Hxtns as [v Hfx]. rewrite Hfx /=.
+        destruct (s =P x); subst; simpl; eauto.
+        assert (s ∈ FV t :\ x) as Hstnx.
+        { apply (introF eqP) in n. rewrite in_fsetD in_fset1 n Hst //. }
+        apply Hft, (rwP dommP) in Hstnx as [v Hfs]. rewrite Hfs /=.
         destruct (Fresh0 (codomm f) =P v); subst; simpl; eauto.
         assert (Fresh0 (codomm f) ∈ codomm f) as HFreshℛf. { apply (rwP codommP). eauto. }
         pose proof HFresh (codomm f) as HnFresh. rewrite HFreshℛf // in HnFresh.
-    - rewrite <- (rwP andP). split.
+    - rewrite /= -(rwP andP). split.
       + apply IHt1; auto. introv Hxt1.
         apply Hft. rewrite in_fsetU Hxt1 //.
       + apply IHt2; auto. introv Hxt2.
         apply Hft. rewrite in_fsetU Hxt2 orbT //.
-    - apply α_equivalent'_converse; auto.
-      rewrite /= mapmE.
-      assert (s ∈ fset1 s) as Hss. { rewrite in_fset1 eq_refl //. }
-      apply Hft, (rwP dommP) in Hss as [v Hfs].
-      rewrite Hfs /=. apply (rwP getmP). auto.
+    - assert (s ∈ domm f) as Hfs. { apply Hft. rewrite in_fset1 //. }
+      apply (rwP dommP) in Hfs as [v Hv].
+      rewrite /= mapmE Hv /= -(rwP getmP).
+      apply getm_inv. rewrite invmK // (rwP injectivemP) //.
   Qed.
 
   Lemma lemma7 :
@@ -1619,7 +1676,7 @@ Module AlphaFacts (Import M : Alpha).
     apply (introF eqP) in Hnxx'. rewrite Hnxx' //.
   Qed.
 
-  Lemma α_equivalent_update' :
+  Lemma α_equivalent'_update' :
     forall R t u x y,
       x ∉ FV t ->
       y ∉ FV u ->
@@ -1738,82 +1795,6 @@ Module AlphaFacts (Import M : Alpha).
     apply (rwP codommP). eauto.
   Qed.
 
-  #[program] Lemma lift_substitution'_indistinguishable_substitutions' :
-    forall Fresh R f g t,
-      Fresh_correct Fresh ->
-      t ∈ Tm (domm f ∩ domm g) ->
-      (forall x, x ∈ FV t -> getm f x `≡_α^R getm g x) ->
-      `⦇f⦈ Fresh t ≡_α^R `⦇g⦈ Fresh t.
-  Proof.
-    introv HFresh Hfgt Hα.
-    apply (rwP fsubsetP) in Hfgt.
-    gen R f g. induction t; intros.
-    - apply IHt; simpl; introv Hxt.
-      + rewrite in_fsetI !domm_set !in_fsetU !in_fset1.
-        destruct (x =P s); subst; auto.
-        apply (introF eqP) in n.
-        assert (x ∈ FV t :\ s) as Hxtns. { rewrite in_fsetD in_fset1 n Hxt //. }
-        apply Hfgt in Hxtns. rewrite /= in_fsetI in Hxtns. apply (rwP andP) in Hxtns as [Hfx Hgx].
-        rewrite Hfx Hgx //.
-      + rewrite !setmE.
-        destruct (x =P s); subst.
-        { apply (rwP getmP). rewrite /= updateE eq_refl //. }
-        apply (introF eqP) in n.
-        assert (x ∈ FV t :\ s) as Hxtns. { rewrite in_fsetD in_fset1 n Hxt //. }
-        pose proof Hxtns as H'xtns. apply Hα in H'xtns.
-        apply Hfgt in Hxtns. rewrite in_fsetI in Hxtns. apply (rwP andP) in Hxtns as [Hfx Hgx].
-        apply (rwP dommP) in Hfx as [t__f Hfx], Hgx as [t__g Hgx].
-        apply α_equivalent_update'; eauto;
-        apply negbT, Bool.not_true_iff_false; introv HFreshℛf;
-        rewrite ?Hfx ?Hgx /= in HFreshℛf.
-        * pose proof HFresh (codomm_Tm_set f) as HFreshf. rewrite <- (rwP codomm_Tm_setPn) in HFreshf.
-          apply (HFreshf t__f). split; auto. apply (rwP codommP). eauto.
-        * pose proof HFresh (codomm_Tm_set g) as HFreshg. rewrite <- (rwP codomm_Tm_setPn) in HFreshg.
-          apply (HFreshg t__g). split; auto. apply (rwP codommP). eauto.
-    - simpl. rewrite <- (rwP andP). split;
-      (apply IHt1 || apply IHt2); introv Hxt;
-      (apply Hfgt || apply Hα); rewrite /= in_fsetU Hxt ?orbT //.
-    - apply Hα. rewrite /= in_fset1 eq_refl //.
-  Qed.
-
-  #[program] Lemma lift_substitution'_indistinguishable_substitutions :
-    forall Fresh f g t,
-      Fresh_correct Fresh ->
-      t ∈ Tm (domm f ∩ domm g) ->
-      (forall x, x ∈ FV t -> getm f x `≡_α getm g x) ->
-      `⦇f⦈ Fresh t ≡_α `⦇g⦈ Fresh t.
-  Proof.
-    introv HFresh Hfgt Hα.
-    apply lift_substitution'_indistinguishable_substitutions'; auto.
-    introv Hxt.
-    apply (rwP fsubsetP) in Hfgt.
-    pose proof Hxt as H'xt. pose proof Hxt as H''xt. apply Hα in Hxt.
-    apply Hfgt in H'xt. rewrite /= in_fsetI in H'xt. apply (rwP andP) in H'xt as [Hfx Hgx].
-    apply (rwP dommP) in Hfx as [t__f Hfx].
-    eapply α_equivalent'_supermap; cycle 1.
-    { apply Hxt. }
-    introv Hf'k.
-    rewrite /fmap_to_Prop identityE Hfx in Hf'k. inverts Hf'k as Hf'k.
-    destruct (k ∈ FV t__f) eqn:Hkt__f; inverts Hf'k.
-    rewrite /fmap_to_Prop identityE.
-    cut (v ∈ FV (`⦇f⦈ Fresh0 t) : Prop). { introv Hf'v. rewrite Hf'v //. }
-    rewrite FV_lift_substitution' //; cycle 1.
-    { rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros x' Hx't.
-      apply Hfgt in Hx't. rewrite /= in_fsetI in Hx't. apply (rwP andP) in Hx't as [Hfx' Hgx']. auto. }
-    rewrite in_bigcup. apply (rwP hasP). exists t__f; auto.
-    apply (rwP pimfsetP). eauto.
-  Qed.
-
-  #[program] Lemma lift_substitution_indistinguishable_substitutions :
-    forall f g t,
-      t ∈ Tm (domm f ∩ domm g) ->
-      (forall x, x ∈ FV t -> getm f x `≡_α getm g x) ->
-      ⦇f⦈ t ≡_α ⦇g⦈ t.
-  Proof.
-    introv Hfgt Hα.
-    apply lift_substitution'_indistinguishable_substitutions; auto. apply HFresh.
-  Qed.
-
   (** Page 7: "We have to show ⦇f[[z0 = z1]]⦈ ∘ g[[x = z0]](v) ≡α (⦇f⦈ ∘ g)[[x = z1]](v)." *)
   #[program] Lemma lift_update_substitution'_compose_substitution_update :
     forall Fresh f g x z0 z1,
@@ -1826,13 +1807,20 @@ Module AlphaFacts (Import M : Alpha).
   Proof.
     introv HFresh Hℛgf Hnℛfz1 Hnℛgz0 Hg'v.
     apply (rwP fsubsetP) in Hℛgf.
-    rewrite !setmE !mapmE /= !setmE.
-    rewrite in_fsetU in_fset1 in Hg'v. apply (rwP orP) in Hg'v as [Hgv|Hvx]; cycle 1.
-    { rewrite Hvx /= setmE eq_refl. reflexivity. }
+    rewrite in_fsetU in_fset1 in Hg'v.
     destruct (v =P x); subst.
-    { rewrite /= setmE eq_refl. reflexivity. }
+    { apply (rwP eqP) in Hg'v. subst. rewrite /= setmE mapmE setmE eq_refl /= setmE eq_refl. reflexivity. }
+    apply (introF eqP) in n.
+    apply (rwP orP) in Hg'v as [Hgv | Hvx]; auto.
+    apply (rwP dommP) in Hgv as [t Hgv].
+    replace (getm (`⦇f[z0,variable z1]⦈ Fresh0 ∘ g[x,variable z0]) v) with (omap (`⦇f[z0,variable z1]⦈ Fresh0) (getm g v)); cycle 1.
+    { rewrite mapmE setmE n Hgv //. }
+    replace (getm ((`⦇f⦈ Fresh0 ∘ g)[x,variable z1]) v) with (omap (`⦇f⦈ Fresh0) (getm g v)); cycle 1.
+    { rewrite setmE mapmE n //. }
+    rewrite Hgv /=.
+
     apply (rwP dommP) in Hgv as [t Hgv]. rewrite Hgv /=.
-    apply lift_substitution'_indistinguishable_substitutions; auto.
+    apply substitution'_preserves_α_congruence; auto.
     - rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros x' Hx't.
       rewrite domm_set in_fsetI in_fsetU in_fset1 orbC.
       destruct (x' ∈ domm f) eqn:Hfx'; auto.
@@ -2405,7 +2393,7 @@ Module AlphaFacts (Import M : Alpha).
           rewrite n0 Hk't //.
         + rewrite Hkt orbT //.
       - transitivity (⦇(1__(FV(⦇(1__(FV t))[y,v]⦈ t)))[x,⦇(1__(FV u))[y,v]⦈ u]⦈ t).
-        { apply lift_substitution_respectsα_equivalence.
+        { apply lift_substitution_respects_α_equivalence.
           - rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
             rewrite domm_set domm_map domm_mkfmapf in_fsetU in_fset Hkt orbT //.
           - apply substitution_law1. rewrite Hyt //. }
@@ -2442,7 +2430,7 @@ Module AlphaFacts (Import M : Alpha).
           rewrite n0 H'kt //.
         + rewrite Hy't orbT //.
       - transitivity (⦇(1__(FV (⦇(1__(FV t))[x,u]⦈ t)))[y,v]⦈ t).
-        { apply lift_substitution_respectsα_equivalence; cycle 1.
+        { apply lift_substitution_respects_α_equivalence; cycle 1.
           { apply substitution_law1. rewrite Hxt //. }
           rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
           rewrite domm_set domm_map domm_mkfmapf in_fsetU in_fset in_fset1 Hkt orbT //. }
