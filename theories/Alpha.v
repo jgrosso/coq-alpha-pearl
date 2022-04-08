@@ -648,14 +648,14 @@ Module AlphaFacts (Import M : Alpha).
 
   Lemma α_equivalent'_observably_equal :
     forall R S t u,
-      (forall x y, R x y -> S x y) ->
+      (forall x y, x ∈ FV t -> R x y -> S x y) ->
       t ≡_α^R u ->
       t ≡_α^S u.
   Proof.
     introv HReqvS Htαu.
     gen R S u. induction t; introv HReqvS Htαu;
     destruct u; inverts Htαu.
-    - apply IHt with (R := R⦅s,s0⦆); auto. introv HR'xy.
+    - apply IHt with (R := R⦅s,s0⦆); auto. introv Hxt HR'xy.
       rewrite /fmap_to_Prop updateE in HR'xy.
       rewrite /fmap_to_Prop updateE.
       destruct (x =P s); subst; auto.
@@ -663,15 +663,17 @@ Module AlphaFacts (Import M : Alpha).
       { inverts HR'xy. }
       destruct (s0 =P s1); subst; inverts HR'xy.
       apply HReqvS in HRx.
-      rewrite HRx. apply (introF eqP) in n0. rewrite n0 //.
+      + rewrite HRx. apply (introF eqP) in n0. rewrite n0 //.
+      + rewrite /= in_fsetD in_fset1 Hxt andbT. apply (introF eqP) in n. rewrite n //.
     - apply (rwP andP) in H0 as [Hα1 Hα2].
       simpl. rewrite <- (rwP andP). split;
       (apply IHt1 with R + apply IHt2 with R); auto;
       introv HRxy Hx;
       apply HReqvS; auto;
-      rewrite /= in_fsetU Hx ?orbT //.
+      rewrite /= in_fsetU HRxy ?orbT //.
     - apply (rwP getmP), HReqvS in H0.
-      apply (rwP getmP). rewrite H0 //.
+      + apply (rwP getmP). rewrite H0 //.
+      + rewrite /= in_fset1 eq_refl //.
   Qed.
 
   (** Page 4: "We now define ≡α = ≡α^1X." *)
@@ -1001,14 +1003,14 @@ Module AlphaFacts (Import M : Alpha).
       t ≡_α^(R⦅x,y⦆) u.
   Proof.
     introv HRtype HxnX HynY Hα.
-    apply α_equivalent'_observably_equal with (R := R); auto. introv HRk.
+    apply α_equivalent'_observably_equal with (R := R); auto. intros k v Hkt Hkv.
     apply (rwP andP) in HRtype as [HRX HRY].
     apply (rwP fsubsetP) in HRX, HRY.
     rewrite /fmap_to_Prop updateE.
-    destruct (x0 =P x); subst.
+    destruct (k =P x); subst.
     { exfalso. apply (rwP negP) in HxnX. apply HxnX, HRX, (rwP dommP). eauto. }
-    rewrite HRk.
-    destruct (y =P y0); subst; auto.
+    rewrite Hkv.
+    destruct (y =P v); subst; auto.
     exfalso. apply (rwP negP) in HynY. apply HynY, HRY, (rwP codommP). eauto.
   Qed.
 
@@ -1121,54 +1123,6 @@ Module AlphaFacts (Import M : Alpha).
     - apply codomm_Tm_set_update_substitution. auto.
   Qed.
 
-  Lemma α_equivalent'_bijection_includes_all_FV :
-    forall R t u,
-      t ≡_α^R u ->
-      t ∈ Tm (domm R).
-  Proof.
-    introv Hα.
-    rewrite /Tm /in_mem /=. apply (rwP fsubsetP). introv Hxt.
-    gen R u. induction t; introv Hα;
-    destruct u; inverts Hα as Hα.
-    - rewrite /= in_fsetD in_fset1 in Hxt. apply (rwP andP) in Hxt as [Hxns Hxt].
-      cut (x ∈ domm R⦅s,s0⦆ = true).
-      { introv HR'x.
-        apply (rwP dommP) in HR'x as [v HR'x].
-        rewrite unionmE remmE rem_valmE setmE /= in HR'x.
-        destruct (x =P s); subst; auto.
-        destruct (getm R x) eqn:HRx.
-        - eapply (rwP dommP). eauto.
-        - inverts HR'x. }
-      eapply IHt; eauto.
-    - apply (rwP andP) in Hα as [Hα1 Hα2].
-      rewrite /= /in_mem /= in_fsetU in Hxt. apply (rwP orP) in Hxt as [Hx|Hx]; eauto.
-    - apply (rwP getmP) in Hα.
-      rewrite in_fset1 in Hxt. apply (rwP eqP) in Hxt. subst.
-      apply (rwP dommP). eauto.
-  Qed.
-
-  Lemma α_equivalent'_FV_minimal :
-    forall t u,
-      t ≡_α u ->
-      t ≡_α^(1__(FV t)) u.
-  Proof.
-    introv [X Hα].
-    gen u. induction t; introv Hα;
-    destruct u; inverts Hα as Hα; simpl in *.
-    -
-
-  Lemma α_equivalent'_Tm :
-    forall X t u,
-      t ∈ Tm X ->
-      t ≡_α u ->
-      t ≡_α^(1__X) u.
-  Proof.
-    introv HtX [Y Hα].
-    apply α_equivalent'_observably_equal with (R := 1__(FV t)); auto.
-    gen u. induction t; introv Hα;
-    destruct u; inverts Hα; simpl in *.
-    - apply IHt.
-
   (** Page 5: "We are now going to verify that substitution preserves α-congruence: If we have...." *)
   #[program] Theorem substitution_preserves_α_congruence :
     forall Y Fresh f g,
@@ -1191,12 +1145,12 @@ Module AlphaFacts (Import M : Alpha).
     - introv Hfxx'.
       rewrite /fmap_to_Prop identityE in Hfxx'.
       destruct (x ∈ X) eqn:Hfx; inverts Hfxx'; auto.
-    - apply α_equivalent'_supermap with (R__sub := 1__(FV t)).
-      { intros. rewrite /fmap_to_Prop !identityE in H |- *.
-        destruct (k ∈ FV t) eqn:Hkt; inverts H.
-        rewrite /Tm /in_mem /= -(rwP fsubsetP) in Hfgt.
-        apply Hfgt in Hkt. rewrite Hkt //. }
-      apply α_equivalent with (
+    - apply α_equivalent'_observably_equal with (R := 1__X'); auto.
+      introv Hxt Hxy.
+      rewrite /fmap_to_Prop !identityE in Hxy |- *.
+      destruct (x ∈ X') eqn:HxX'; inverts Hxy.
+      rewrite /Tm /in_mem /= -(rwP fsubsetP) in Hfgt.
+      apply Hfgt in Hxt. rewrite Hxt //.
   Qed.
 
   (** Page 5: "A consequence of proposition 4 is that substitution is an operation on α-equivalence classes." *)
@@ -1206,11 +1160,10 @@ Module AlphaFacts (Import M : Alpha).
       Fresh_correct Fresh ->
       codomm_Tm_set f ⊆ Y ->
       t ∈ Tm X ->
-      t ≡_α^(1__X) u ->
+      t ≡_α u ->
       ⦇f⦈ Fresh Y t ≡_α ⦇f⦈ Fresh Y u.
   Proof.
-    intros ? ? ? ? ? ? HFresh Hft Hα.
-    exists Y.
+    intros ? ? ? ? ? ? HFresh Hft HtX Hα.
     apply substitution_preserves_α_congruence; eauto.
     introv Hfx.
     apply (rwP dommP) in Hfx as [v Hv].
@@ -1329,11 +1282,11 @@ Module AlphaFacts (Import M : Alpha).
   Proof.
     introv HRtype HtX HuY HxnX HynY Hα.
     rewrite /Tm /in_mem /= -!(rwP fsubsetP) in HtX, HuY.
-    apply α_equivalent'_with_behaviorally_identical_maps with (R := R); auto. intros x' y' Hx't Hy'u.
-    rewrite /fmap_to_Prop updateE.
+    apply α_equivalent'_observably_equal with (R := R); auto. intros x' y' Hx't HRx'y'.
+    rewrite /fmap_to_Prop updateE in HRx'y' |- *.
     destruct (x' =P x); subst.
-    { apply HtX in Hy'u. rewrite Hy'u // in HxnX. }
-    rewrite Hx't.
+    { apply HtX in Hx't. rewrite Hx't // in HxnX. }
+    rewrite HRx'y'.
     destruct (y =P y'); subst; auto.
     rewrite -(rwP andP) in HRtype. destruct HRtype as [HRX HRY].
     rewrite -(rwP fsubsetP) in HRY.
@@ -1471,8 +1424,8 @@ Module AlphaFacts (Import M : Alpha).
     replace (getm ((⦇f⦈ Fresh0 Z ∘ g)[x,variable z1]) v) with (omap (⦇f⦈ Fresh0 Z) (getm g v)); cycle 1.
     { rewrite setmE mapmE n //. }
     rewrite Hgv /=.
-    apply α_equivalent'_supermap with (R__sub := 1__Z).
-    { intros k v' Hkv'.
+    apply α_equivalent'_observably_equal with (R := 1__Z).
+    { intros k v' Hk Hkv'.
       rewrite /fmap_to_Prop !identityE in_fsetU in Hkv' |- *.
       destruct (k ∈ Z) eqn:HkZ; inverts Hkv'; auto. }
     apply substitution_preserves_α_congruence' with (R := 1__Y); auto.
@@ -1537,7 +1490,7 @@ Module AlphaFacts (Import M : Alpha).
   Proof.
     introv [X Hα].
     exists X. rewrite /= update_identity.
-    apply α_equivalent'_supermap with (R__sub := 1__X); auto. introv Hkv.
+    apply α_equivalent'_observably_equal with (R := 1__X); auto. intros k v Hkt Hkv.
     rewrite /fmap_to_Prop !identityE in_fsetU in Hkv |- *.
     destruct (k ∈ X) eqn:Hkx; inverts Hkv; auto.
   Qed.
@@ -1560,11 +1513,11 @@ Module AlphaFacts (Import M : Alpha).
       apply IHt1 with (f := f) (Z := Z) in Ht1g as [X1 Ht1g]; eauto.
       apply IHt2 with (f := f) (Z := Z) in Ht2g as [X2 Ht2g]; eauto.
       exists (X1 ∪ X2). rewrite /= -(rwP andP). split.
-      - apply α_equivalent'_supermap with (R__sub := 1__X1); auto.
-        introv Hkv. rewrite !/fmap_to_Prop !identityE in Hkv |- *.
+      - apply α_equivalent'_observably_equal with (R := 1__X1); auto.
+        intros k v Hk Hkv. rewrite !/fmap_to_Prop !identityE in Hkv |- *.
         destruct (k ∈ X1) eqn:HkX1; inverts Hkv. rewrite in_fsetU HkX1 //.
-      - apply α_equivalent'_supermap with (R__sub := 1__X2); auto.
-        introv Hkv. rewrite !/fmap_to_Prop !identityE in Hkv |- *.
+      - apply α_equivalent'_observably_equal with (R := 1__X2); auto.
+        intros k v Hk Hkv. rewrite !/fmap_to_Prop !identityE in Hkv |- *.
         destruct (k ∈ X2) eqn:HkX2; inverts Hkv. rewrite in_fsetU HkX2 orbC //. }
     { rewrite /Tm /in_mem /= fsub1set in Hgt. apply (rwP dommP) in Hgt as [t Hgs].
       rewrite /= mapmE Hgs /=. reflexivity. }
@@ -1590,7 +1543,7 @@ Module AlphaFacts (Import M : Alpha).
       { rewrite /Tm /in_mem /= in Hgt |- *. rewrite domm_set -fsubDset //. }
       rewrite /= domm_set [_ |: _]fsetUC in Hα.
       exists Z'. rewrite /= update_identity.
-      apply α_equivalent'_supermap with (R__sub := 1__Z'); auto. introv Hkv.
+      apply α_equivalent'_observably_equal with (R := 1__Z'); auto. intros k v Hk Hkv.
       rewrite /fmap_to_Prop !identityE in_fsetU in_fset1 in Hkv |- *.
       destruct (k ∈ Z') eqn:HkZ'; inverts Hkv. auto. }
     apply abstraction_preserves_α_equivalent.
