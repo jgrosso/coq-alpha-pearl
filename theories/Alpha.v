@@ -38,9 +38,9 @@ End Alpha.
 Module AlphaFacts (Import M : Alpha).
   #[local] Implicit Type Fresh : {fset 𝒱} -> 𝒱.
 
-  #[local] Notation "x '∪' '{' y '}'" :=
-    (x :|: fset1 y)
-      (at level 52, format "x  '∪'  '{' y '}'")
+  #[local] Notation "X '∪' '{' x '}'" :=
+    (X :|: fset1 x)
+      (at level 52, format "X  '∪'  '{' x '}'")
     : fset_scope.
 
   Inductive term : Type :=
@@ -1644,7 +1644,7 @@ Module AlphaFacts (Import M : Alpha).
   Qed.
 
   (** Page 5: "To show that substitution is well behaved, i.e. laws such as...." *)
-  Lemma substitution_law1' :
+  Lemma substitution_law1 :
     forall Fresh X t u x,
       Fresh_correct Fresh ->
       t ∈ Tm X ->
@@ -1654,309 +1654,262 @@ Module AlphaFacts (Import M : Alpha).
   Proof.
     introv HFresh HtXx HuX HnxX.
     transitivity (⦇η__ X⦈ Fresh0 X t).
-    - apply lift_substitution_respects_α_equivalence.
-
-
-
-      exists X. apply substitution_preserves_α_congruence; auto.
-      + rewrite codomm_update_substitution remmI.
-        * rewrite fsubUset codomm_Tm_set_η fsubsetxx //.
-        * rewrite domm_η //.
+    - exists X.
+      apply (@substitution_preserves_α_congruence' Fresh0 X X (1__X) (1__X) ((1__X)[x,u]) (η__ X)); auto.
+      + rewrite /is_subset_of domm_set domm_map !domm_identity codomm_identity fsubsetU // fsubsetxx // orbC //.
+      + apply identity_type.
+      + rewrite -(rwP fsubsetP). intros k Hk.
+        apply (rwP codomm_Tm_setP) in Hk as (t' & Hkt' & Ht').
+        apply (rwP codommP) in Ht' as [y Hy].
+        rewrite setmE mapmE identityE in Hy.
+        destruct (y =P x); subst.
+        * inverts Hy. rewrite /Tm /in_mem /= -(rwP fsubsetP) in HuX. apply HuX. auto.
+        * destruct (y ∈ X) eqn:HyX; inverts Hy.
+          rewrite in_fset1 -(rwP eqP) in Hkt'. subst. auto.
       + rewrite codomm_Tm_set_η fsubsetxx //.
-      + rewrite domm_η domm_set domm_η -H.
-
-
-
-      apply lift_substitution_indistinguishable_substitutions; auto.
-      + rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros y Hyt.
-        rewrite !domm_map !domm_set !domm_map !domm_mkfmapf in_fsetI in_fsetU !in_fset Hyt orbT //.
-      + intros y Hyt.
-        rewrite setmE mapmE.
-        destruct (y =P x); subst.
-        { rewrite Hyt // in Hnxt. }
-        reflexivity.
+      + intros y z Hyz.
+        rewrite /fmap_to_Prop identityE in Hyz.
+        destruct (y ∈ X) eqn:HyX; inverts Hyz.
+        rewrite setmE mapmE identityE HyX.
+        destruct (z =P x); subst.
+        * rewrite HyX // in HnxX.
+        * rewrite /= -(rwP getmP) identityE HyX //.
+      + apply α_equivalent'_identity. auto.
     - apply monad_substitution1; auto.
-      rewrite /Tm /in_mem /= fsubsetxx //.
-  Qed.
-
-  Lemma substitution_law1 :
-    forall Fresh t u x,
-      Fresh_correct Fresh ->
-      u ∈ Tm (FV t) ->
-      x ∉ FV t ->
-      t[x⟵u]Fresh,FV t ≡_α t.
-  Proof.
-    introv HFresh Hut Hnxt.
-
-
-
-  Lemma domm_identity' :
-    forall X,
-      domm (1__X : {fmap 𝒱 → term}) = X.
-  Proof.
-    introv.
-    rewrite domm_map domm_identity //.
-  Qed.
-
-  Lemma codomm_identity' :
-    forall X,
-      codomm (1__X : {fmap 𝒱 → term}) = variable @: X.
-  Proof.
-    introv.
-    apply eq_fset. intros x.
-    apply Bool.eq_iff_eq_true. split; introv HxX.
-    - apply (rwP codommP) in HxX as [v HxX].
-      rewrite ηE in HxX.
-      apply (rwP imfsetP).
-      destruct (v ∈ X) eqn:HvX; inverts HxX. eauto.
-    - apply (rwP imfsetP) in HxX as [y HyX Hxy]. subst.
-      apply (rwP codommP). exists y.
-      rewrite ηE HyX //.
-  Qed.
-
-  Lemma FV_after_substitute' :
-    forall Fresh t u x,
-      Fresh_correct Fresh ->
-      x ∈ FV t ->
-      FV (t[x⟵u]Fresh) = (FV t :\ x) ∪ FV u.
-  Proof.
-    introv HFresh Hxt.
-    replace (FV t :\ x) with (codomm_Tm_set (remm (1__(FV t)) x)); cycle 1.
-    { apply eq_fset. intros k.
-      rewrite in_fsetD in_fset1.
-      destruct (k =P x); subst.
-      - apply negbTE, (rwP codomm_Tm_setPn). intros t' [Hxt' Htt'].
-        apply (rwP codommP) in Htt' as [x' Hxx'].
-        rewrite remmE mapmE identityE in Hxx'.
-        destruct (x' =P x); subst.
-        { inverts Hxx'. }
-        destruct (x' ∈ FV t) eqn:Hx't; inverts Hxx'.
-        rewrite in_fset1 in Hxt'. apply (rwP eqP) in Hxt'. subst. auto.
-      - destruct (k ∈ FV t) eqn:Hkt.
-        + apply (rwP codomm_Tm_setP). exists (variable k). split.
-          * rewrite in_fset1 eq_refl //.
-          * apply (rwP codommP). exists k.
-            apply (introF eqP) in n.
-            rewrite remmE ηE n Hkt //.
-        + apply negbTE, (rwP codomm_Tm_setPn). intros t' [Hkt' Htt'].
-          apply (rwP codommP) in Htt' as [x' Hxx'].
-          rewrite remmE ηE in Hxx'.
-          destruct (x' =P x); subst.
-          { inverts Hxx'. }
-          destruct (x' ∈ FV t) eqn:Hx't; inverts Hxx'.
-          rewrite in_fset1 in Hkt'. apply (rwP eqP) in Hkt'. subst. rewrite Hx't // in Hkt. }
-    rewrite FV_lift_substitution; auto.
-    - apply eq_fset. intros k.
-      apply Bool.eq_iff_eq_true. split; introv Hk.
-      + rewrite in_fsetU.
-        rewrite in_bigcup in Hk. apply (rwP hasP) in Hk as [t' Htt' Hkt'].
-        apply (rwP pimfsetP) in Htt' as [y Hyt Hty].
-        rewrite setmE ηE in Hty.
-        destruct (y =P x); subst.
-        { inverts Hty. simpl in *. rewrite Hkt' orbT //. }
-        rewrite Hyt in Hty. inverts Hty.
-        rewrite in_fset1 in Hkt'. apply (rwP eqP) in Hkt'. subst.
-        apply (rwP orP). left.
-        apply (rwP codomm_Tm_setP). exists (variable y). split.
-        * rewrite /= in_fset1 eq_refl //.
-        * apply (rwP codommP). exists y.
-          apply (introF eqP) in n.
-          rewrite remmE ηE n Hyt //.
-      + rewrite in_bigcup. apply (rwP hasP).
-        rewrite in_fsetU in Hk. apply (rwP orP) in Hk as [Hkt|Hku].
-        * apply (rwP codomm_Tm_setP) in Hkt as (t' & Hkt' & Htt').
-          apply (rwP codommP) in Htt' as [y Hxy].
-          rewrite remmE ηE in Hxy.
-          destruct (y =P x); subst.
-          { inverts Hxy. }
-          destruct (y ∈ FV t) eqn:Hyt; inverts Hxy.
-          rewrite in_fset1 in Hkt'. apply (rwP eqP) in Hkt'. subst.
-          exists (variable y).
-          -- apply (rwP pimfsetP). exists y; auto.
-             apply (introF eqP) in n.
-             rewrite setmE ηE n Hyt //.
-          -- rewrite /= in_fset1 eq_refl //.
-        * exists u; auto.
-          apply (rwP pimfsetP). exists x; auto.
-          rewrite setmE ηE eq_refl //.
-    - rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros y Hyt.
-      rewrite domm_set domm_map domm_mkfmapf in_fsetU in_fset Hyt orbT //.
-  Qed.
-
-  Lemma FV_noop_substitute' :
-    forall Fresh t u x,
-      Fresh_correct Fresh ->
-      x ∉ FV t ->
-      FV (t[x⟵u]Fresh) = FV t.
-  Proof.
-    introv HFresh Hnxt.
-    apply FV_respects_α_equivalence.
-    symmetry. apply substitution_law1; auto.
-  Qed.
-
-  Lemma domm_update_identity :
-    forall t u x,
-      domm ((1__(FV t))[x, u]) = FV t ∪ {x}.
-  Proof.
-    introv.
-    rewrite domm_update_substitution domm_map domm_mkfmapf fsvalK //.
-  Qed.
-
-  Lemma codomm_Tm_set_update_identity :
-    forall X u x,
-      codomm_Tm_set ((1__X)[x, u]) = (X :\ x) ∪ FV u.
-  Proof.
-    introv.
-    rewrite codomm_update_substitution. repeat f_equal.
-    apply eq_fset. intros k.
-    rewrite in_fsetD in_fset1.
-    apply Bool.eq_iff_eq_true. split; introv Hxk.
-    + apply (rwP codomm_Tm_setP) in Hxk as (y & Hky & Hxy).
-      apply (rwP codommP) in Hxy as [v Hxy].
-      rewrite remmE ηE in Hxy.
-      destruct (v =P x); subst.
-      { inverts Hxy. }
-      destruct (v ∈ X) eqn:HvX; inverts Hxy.
-      rewrite in_fset1 in Hky. apply (rwP eqP) in Hky. subst.
-      apply (introF eqP) in n.
-      rewrite n HvX //.
-    + apply (rwP andP) in Hxk as [Hknx HkX].
-      apply (rwP codomm_Tm_setP). exists (variable k). split.
-      * rewrite /= in_fset1 eq_refl //.
-      * apply (rwP codommP). exists k.
-        apply negbTE in Hknx.
-        rewrite remmE ηE Hknx HkX //.
   Qed.
 
   (** Page 5: "To show that substitution is well behaved, i.e. laws such as...." *)
   Lemma substitution_law2 :
-    forall t u (v : term) x y,
+    forall Fresh X t u (v : term) x y,
+      Fresh_correct Fresh ->
+      t ∈ Tm (X ∪ {x} ∪ {y}) ->
+      u ∈ Tm (X ∪ {y}) ->
+      v ∈ Tm X ->
       x <> y ->
-      x ∉ FV v -> (* See Exercise 2.2 in http://www.cse.chalmers.se/research/group/logic/TypesSS05/Extra/geuvers.pdf. *)
-      t[x⟵u][y⟵v] ≡_α t[y⟵v][x⟵u[y⟵v]].
+      x ∉ X -> (* See Exercise 2.2 in http://www.cse.chalmers.se/research/group/logic/TypesSS05/Extra/geuvers.pdf. *)
+      y ∉ X ->
+      t[x⟵u]Fresh,(X ∪ {y})[y⟵v]Fresh,X ≡_α t[y⟵v]Fresh,(X ∪ {x})[x⟵u[y⟵v]Fresh,X]Fresh,X.
   Proof.
-    introv Hxny Hxnv.
-    symmetry.
-    transitivity (⦇⦇(1__(FV(⦇(1__(FV t))[y,v]⦈ t)))[x,⦇(1__(FV u))[y,v]⦈ u]⦈ ∘ (1__(FV t))[y,v]⦈ t).
-    { destruct (y ∈ FV t) eqn:Hyt. (* TODO Can we remove the [destruct]s of this form? *)
-      - apply monad_substitution3; try rewrite /Tm /in_mem /=; apply (rwP fsubsetP); intros k Hkt;
-        rewrite domm_set domm_map domm_mkfmapf in_fsetU in_fset.
-        + rewrite FV_after_substitute // in_fsetU in_fsetD !in_fset1.
-          destruct (k =P x); subst; auto.
-          apply (rwP codomm_Tm_setP) in Hkt as (t' & Hkt' & Htt').
-          apply (rwP codommP) in Htt' as [k' Htk'].
-          rewrite setmE ηE in Htk'.
+    introv HFresh Ht Hu Hv Hxny HxnX HynX.
+    rewrite /Tm /in_mem /= -!(rwP fsubsetP) in Hu, Hv.
+    etransitivity.
+    { applys_eq (@monad_substitution3 Fresh0 X ((1__X)[y,v]) ((1__(X ∪ {y}))[x,u]) t); auto.
+      - rewrite domm_set [y |: _]fsetUC domm_η //.
+      - rewrite domm_set domm_η codomm_update_substitution remmI.
+        + rewrite codomm_Tm_set_η -(rwP fsubsetP). intros k Hk.
+          rewrite in_fsetU orbC in Hk |- *. rewrite fsetUC.
+          apply (rwP orP) in Hk as [Hk|Hk]; auto.
+        + apply (introF eqP) in Hxny. rewrite domm_η in_fsetU in_fset1 negb_or HxnX Hxny //.
+      - rewrite codomm_update_substitution remmI //; cycle 1.
+        { rewrite domm_η //. }
+        rewrite -(rwP fsubsetP). intros k Hk.
+        rewrite codomm_Tm_set_η in_fsetU in Hk. apply (rwP orP) in Hk as [Hk|Hk]; auto.
+      - rewrite domm_set domm_η fsetUC -fsetUA [y |: _]fsetUC fsetUA //. }
+    symmetry. etransitivity.
+    { applys_eq (@monad_substitution3 Fresh0 X ((1__X)[x,u[y⟵v]Fresh0,X]) ((1__(X ∪ {x}))[y,v]) t); auto.
+      - rewrite domm_set [x |: _]fsetUC domm_η //.
+      - rewrite domm_set domm_η codomm_update_substitution remmI.
+        + rewrite codomm_Tm_set_η -(rwP fsubsetP). intros k Hk.
+          rewrite !in_fsetU in_fset1 orbC in Hk |- *. rewrite -(rwP orP).
+          repeat apply (rwP orP) in Hk as [Hk|Hk]; auto.
+        + apply not_eq_sym, (introF eqP) in Hxny. rewrite domm_η in_fsetU in_fset1 negb_or HynX Hxny //.
+      - rewrite codomm_update_substitution remmI //; cycle 1.
+        { rewrite domm_η //. }
+        rewrite -(rwP fsubsetP). intros k Hk.
+        rewrite codomm_Tm_set_η FV_lift_substitution // in Hk.
+        + rewrite in_fsetU in_bigcup in Hk. apply (rwP orP) in Hk as [Hk|Hk]; auto.
+          apply (rwP hasP) in Hk as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+          rewrite setmE ηE in H0.
           destruct (k' =P y); subst.
-          { inverts Htk'. rewrite Hkt' orbT //. }
-          apply (introF eqP) in n0.
-          destruct (k' ∈ FV t) eqn:Hk't; inverts Htk'.
-          rewrite in_fset1 in Hkt'. apply (rwP eqP) in Hkt'. subst.
-          rewrite n0 Hk't //.
-        + rewrite Hkt orbT //.
-      - transitivity (⦇(1__(FV(⦇(1__(FV t))[y,v]⦈ t)))[x,⦇(1__(FV u))[y,v]⦈ u]⦈ t).
-        { apply lift_substitution_respects_α_equivalence.
-          - rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
-            rewrite domm_set domm_map domm_mkfmapf in_fsetU in_fset Hkt orbT //.
-          - apply substitution_law1. rewrite Hyt //. }
-        apply lift_substitution_indistinguishable_substitutions.
-        + rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
-          rewrite !domm_set !domm_map !domm_set !domm_map !domm_mkfmapf in_fsetI !in_fsetU !in_fset !in_fset1 Hkt orbT andbT.
-          destruct (k =P x); subst; auto.
-          rewrite FV_noop_substitute //. rewrite Hyt //.
-        + intros k Hkt.
-          rewrite !setmE !mapmE !setmE !ηE !identityE Hkt.
-          destruct (k =P x); subst.
-          { apply (introF eqP) in Hxny. rewrite /lift_substitution /= Hxny /= setmE mapmE eq_refl. reflexivity. }
-          apply (introF eqP) in n.
-          rewrite FV_noop_substitute; cycle 1.
-          { rewrite Hyt //. }
-          rewrite Hkt /=.
-          destruct (k =P y); subst.
-          { rewrite /= Hkt // in Hyt. }
-          rewrite /lift_substitution /= setmE ηE n Hkt. reflexivity. }
-    symmetry.
-    transitivity (⦇⦇(1__(FV (⦇(1__(FV t))[x,u]⦈ t)))[y,v]⦈ ∘ (1__(FV t))[x,u]⦈ t).
-    { destruct (x ∈ FV t) eqn:Hxt.
-      - apply monad_substitution3; try rewrite /Tm /in_mem /=; apply (rwP fsubsetP); intros y' Hy't; rewrite domm_set domm_map domm_mkfmapf in_fsetU in_fset1 in_fset.
-        + rewrite FV_after_substitute // in_fsetU in_fsetD !in_fset1.
-          destruct (y' =P y); subst; auto.
-          apply (rwP codomm_Tm_setP) in Hy't as (t' & Hy't' & Htt').
-          apply (rwP codommP) in Htt' as [k Hkt].
-          rewrite setmE ηE in Hkt.
-          destruct (k =P x); subst.
-          { inverts Hkt. rewrite Hy't' !orbT //. }
-          apply (introF eqP) in n0.
-          destruct (k ∈ FV t) eqn:H'kt; inverts Hkt.
-          rewrite in_fset1 in Hy't'. apply (rwP eqP) in Hy't'. subst.
-          rewrite n0 H'kt //.
-        + rewrite Hy't orbT //.
-      - transitivity (⦇(1__(FV (⦇(1__(FV t))[x,u]⦈ t)))[y,v]⦈ t).
-        { apply lift_substitution_respects_α_equivalence; cycle 1.
-          { apply substitution_law1. rewrite Hxt //. }
-          rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
-          rewrite domm_set domm_map domm_mkfmapf in_fsetU in_fset in_fset1 Hkt orbT //. }
-        apply lift_substitution_indistinguishable_substitutions.
-        + rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
-          rewrite !domm_set !domm_map !domm_set !domm_map !domm_mkfmapf in_fsetI !in_fsetU !in_fset !in_fset1 Hkt orbT andbT FV_noop_substitute; cycle 1.
-          { rewrite Hxt //. }
-          destruct (k =P y); subst; auto.
-        + intros k Hkt.
-          rewrite !mapmE !setmE !ηE Hkt.
-          destruct (k =P y); subst.
-          { apply not_eq_sym, (introF eqP) in Hxny. rewrite /lift_substitution Hxny /= setmE eq_refl. reflexivity. }
-          apply (introF eqP) in n.
-          destruct (k =P x); subst.
-          { rewrite /= Hkt // in Hxt. }
-          rewrite /lift_substitution /= setmE ηE n FV_noop_substitute; cycle 1.
-          { rewrite Hxt //. }
-          rewrite Hkt. reflexivity. }
-    apply lift_substitution_indistinguishable_substitutions.
-    - rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
-      rewrite !domm_map !domm_set !domm_map !domm_mkfmapf in_fsetI !in_fsetU !in_fset !in_fset1 Hkt !orbT //.
-    - intros k Hkt.
-      rewrite !mapmE !setmE !ηE Hkt.
+          { inverts H0. auto. }
+          destruct (k' ∈ X) eqn:Hk'X; inverts H0. rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+        + rewrite codomm_update_substitution remmI //; cycle 1.
+          { rewrite domm_η //. }
+          rewrite -(rwP fsubsetP). intros k' Hk'.
+          rewrite codomm_Tm_set_η in_fsetU in Hk'. apply (rwP orP) in Hk' as [Hk'|Hk']; auto.
+        + rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+      - rewrite domm_set domm_η fsetUC //. }
+    apply substitution_preserves_α_congruence; auto.
+    - rewrite -(rwP fsubsetP). intros k Hk.
+      apply (rwP codomm_Tm_setP) in Hk as (t' & Hk & Ht').
+      apply (rwP codommP) in Ht' as (k' & Hk').
+      rewrite /= mapmE setmE ηE in Hk'.
+      destruct (k' =P y); subst.
+      + inverts Hk'.
+        rewrite FV_lift_substitution // in Hk.
+        * rewrite in_bigcup in Hk.
+          apply (rwP hasP) in Hk as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+          rewrite setmE ηE in H0.
+          destruct (k' =P x); subst; cycle 1.
+          { destruct (k' ∈ X) eqn:Hk'X; inverts H0. rewrite in_fset1 -(rwP eqP) in H. subst. auto. }
+          inverts H0.
+          rewrite FV_lift_substitution // in H.
+          -- rewrite in_bigcup in H.
+             apply (rwP hasP) in H as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk].
+             rewrite setmE ηE in H0.
+             destruct (k' =P y); subst.
+             { inverts H0. auto. }
+             destruct (k' ∈ X) eqn:Hk'X; inverts H0.
+             rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+          -- rewrite -(rwP fsubsetP). intros k' H'k'.
+             apply (rwP codomm_Tm_setP) in H'k' as (t' & Hk & Ht').
+             rewrite codomm_setmE in Ht'.
+             rewrite in_fsetU in_fset1 in Ht'. apply (rwP orP) in Ht' as [Ht'|Ht'].
+             { apply (rwP eqP) in Ht'. subst. auto. }
+             rewrite remmI in Ht'; cycle 1.
+             { rewrite domm_η //. }
+             apply (rwP codommP) in Ht' as [k'' Hk''].
+             rewrite ηE in Hk''.
+             destruct (k'' ∈ X) eqn:Hk''X; inverts Hk''.
+             rewrite in_fset1 -(rwP eqP) in Hk. subst. auto.
+          -- rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+        * rewrite codomm_update_substitution remmI; cycle 1.
+          { rewrite domm_η //. }
+          rewrite fsubUset codomm_Tm_set_η fsubsetxx /= -(rwP fsubsetP). intros k' Hk'.
+          -- rewrite FV_lift_substitution // in Hk'.
+             ++ rewrite in_bigcup in Hk'.
+                apply (rwP hasP) in Hk' as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k'' Hk''].
+                rewrite setmE ηE in H0.
+                destruct (k'' =P y); subst.
+                { inverts H0. auto. }
+                destruct (k'' ∈ X) eqn:Hk''X; inverts H0. rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+             ++ rewrite codomm_update_substitution remmI; cycle 1.
+                { rewrite domm_η //. }
+                rewrite fsubUset codomm_Tm_set_η fsubsetxx /= -(rwP fsubsetP) //.
+             ++ rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+        * rewrite /Tm /in_mem /= domm_set domm_η fsetUC fsubsetU // -(rwP orP). left.
+          rewrite -(rwP fsubsetP). auto.
+      + rewrite in_fsetU in_fset1 in Hk'.
+        destruct (k' ∈ X) eqn:Hk'X.
+        * rewrite /= setmE ηE in Hk'.
+          destruct (k' =P x); subst.
+          { inverts Hk'. rewrite Hk'X // in HxnX. }
+          rewrite Hk'X in Hk'. inverts Hk'. rewrite in_fset1 -(rwP eqP) in Hk. subst. auto.
+        * destruct (k' =P x); subst; inverts Hk'.
+          rewrite setmE eq_refl /= FV_lift_substitution // in Hk.
+          -- rewrite in_bigcup in Hk.
+             apply (rwP hasP) in Hk as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+             rewrite setmE ηE in H0.
+             destruct (k' =P y); subst.
+             { inverts H0. auto. }
+             destruct (k' ∈ X) eqn:H'k'X; inverts H0. rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+          -- rewrite codomm_update_substitution remmI; cycle 1.
+             { rewrite domm_η //. }
+             rewrite codomm_Tm_set_η fsubUset // fsubsetxx // -(rwP fsubsetP) //.
+          -- rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+    - rewrite -(rwP fsubsetP). intros k Hk.
+      apply (rwP codomm_Tm_setP) in Hk as (t' & Hk & Ht').
+      apply (rwP codommP) in Ht' as [k' Hk'].
+      rewrite mapmE setmE ηE in_fsetU in_fset1 in Hk'.
+      destruct (k' =P x); subst.
+      + inverts Hk'. rewrite FV_lift_substitution // in Hk.
+        * rewrite in_bigcup in Hk.
+          apply (rwP hasP) in Hk as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+          rewrite setmE ηE in H0.
+          destruct (k' =P y); subst.
+          { inverts H0. auto. }
+          destruct (k' ∈ X) eqn:Hk'X; inverts H0. rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+        * rewrite codomm_update_substitution remmI; cycle 1.
+          { rewrite domm_η //. }
+          rewrite codomm_Tm_set_η fsubUset // fsubsetxx // -(rwP fsubsetP) //.
+        * rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+      + destruct (k' ∈ X) eqn:Hk'X.
+        * rewrite /= setmE ηE Hk'X in Hk'.
+          destruct (k' =P y); subst; inverts Hk'; auto.
+          rewrite in_fset1 -(rwP eqP) in Hk. subst. auto.
+        * destruct (k' =P y); subst; inverts Hk'.
+          rewrite setmE ηE eq_refl in Hk. auto.
+    - rewrite /= !domm_map !domm_set !domm_η. apply eq_fset. intros k.
+      rewrite !in_fsetU !in_fset1.
       destruct (k =P x); subst.
-      + apply (introF eqP) in Hxny. rewrite /lift_substitution Hxny /= setmE mapmE identityE eq_refl /=.
-        apply lift_substitution_indistinguishable_substitutions.
-        * rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k H'kt.
-          rewrite domm_set domm_map domm_set domm_map !domm_mkfmapf in_fsetI !in_fsetU !in_fset1 !in_fset H'kt orbT andbT.
-          destruct (k =P y); subst; auto.
-          rewrite /= FV_after_substitute // in_fsetU in_fsetD !in_fset1 H'kt !orbT //.
-        * intros k Hku.
-          rewrite !setmE !ηE Hku.
-          destruct (k =P y); subst.
-          { reflexivity. }
-          rewrite FV_after_substitute // in_fsetU in_fsetD !in_fset1 Hku orbT. reflexivity.
+      { rewrite ![_ || true]orbC //. }
+      destruct (k ∈ X) eqn:HkX.
+      { rewrite ![_ || true]orbC //. }
+      rewrite /= ![_ || false]orbC //.
+    - intros k Hk.
+      rewrite !mapmE !setmE.
+      apply not_eq_sym, (introF eqP) in Hxny.
+      rewrite domm_map domm_set domm_η !in_fsetU !in_fset1 -!(rwP orP) in Hk.
+      repeat destruct Hk as [Hk|Hk].
+      + apply (rwP eqP) in Hk. subst.
+        rewrite eq_refl Hxny /= ηE in_fsetU in_fset1 eq_refl orbC /= setmE ηE eq_refl /=.
+        rewrite (rwP fsubsetP) in Hv.
+        pose proof (substitution_law1 X v (u[y⟵v]Fresh0,X) x HFresh Hv) as [Y Hα]; auto.
+        * rewrite /Tm /in_mem /= -(rwP fsubsetP). intros k Hk.
+          rewrite FV_lift_substitution // in Hk.
+          -- rewrite in_bigcup in Hk.
+             apply (rwP hasP) in Hk as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+             rewrite setmE ηE in H0.
+             destruct (k' =P y); subst.
+             { inverts H0. rewrite -(rwP fsubsetP) in Hv. auto. }
+             destruct (k' ∈ X) eqn:Hk'X; inverts H0. rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+          -- rewrite codomm_update_substitution remmI; cycle 1.
+             { rewrite domm_η //. }
+             rewrite codomm_Tm_set_η fsubUset // fsubsetxx //.
+          -- rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+        * apply α_equivalent'_observably_equal with (R := 1__Y); auto. intros x' y' Hx' Hx'y'.
+          rewrite /fmap_to_Prop !identityE in Hx'y' |- *.
+          destruct (x' ∈ Y) eqn:Hx'Y; inverts Hx'y'.
+          rewrite FV_lift_substitution // in Hx'.
+          -- rewrite in_bigcup in Hx'.
+             apply (rwP hasP) in Hx' as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+             rewrite setmE ηE in H0.
+             destruct (k' =P x); subst.
+             ++ inverts H0.
+                rewrite FV_lift_substitution // in H.
+                ** rewrite in_bigcup in H.
+                   apply (rwP hasP) in H as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k'' Hk''].
+                   rewrite setmE ηE in H0.
+                   destruct (k'' =P y); subst.
+                   { inverts H0. apply (rwP fsubsetP) in Hv. apply Hv in H. rewrite H //. }
+                   destruct (k'' ∈ X) eqn:Hk''X; inverts H0.
+                   rewrite in_fset1 -(rwP eqP) in H. subst. rewrite Hk''X //.
+                ** rewrite codomm_update_substitution remmI; cycle 1.
+                   { rewrite domm_η //. }
+                   rewrite codomm_Tm_set_η fsubUset // fsubsetxx //.
+                ** rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+             ++ destruct (k' ∈ X) eqn:Hk'X; inverts H0.
+                rewrite in_fset1 -(rwP eqP) in H. subst. rewrite Hk'X //.
+          -- rewrite codomm_update_substitution remmI; cycle 1.
+             { rewrite domm_η //. }
+             rewrite codomm_Tm_set_η fsubUset // fsubsetxx FV_lift_substitution //.
+             ++ rewrite -(rwP fsubsetP). intros k Hk.
+                rewrite in_bigcup in Hk.
+                apply (rwP hasP) in Hk as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+                rewrite setmE ηE in H0.
+                destruct (k' =P y); subst.
+                { inverts H0. apply (rwP fsubsetP) in Hv. apply Hv, H. }
+                destruct (k' ∈ X) eqn:Hk'X; inverts H0.
+                rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+             ++ rewrite codomm_update_substitution remmI; cycle 1.
+                { rewrite domm_η //. }
+                rewrite codomm_Tm_set_η fsubUset // fsubsetxx //.
+             ++ rewrite domm_set domm_η fsetUC -(rwP fsubsetP) //.
+          -- rewrite domm_set domm_η fsetUC /Tm /in_mem /= fsubsetU // Hv //.
       + destruct (k =P y); subst.
-        * rewrite /lift_substitution /= setmE mapmE eq_refl FV_after_substitute //.
-          transitivity (⦇1__(FV v)⦈ v).
-          { symmetry. apply monad_substitution1.
-            rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k H'kt. auto. }
-          apply lift_substitution_indistinguishable_substitutions.
-          -- rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k H'kt.
-             rewrite domm_set !domm_map !domm_mkfmapf in_fsetI in_fsetU in_fset in_fset in_fsetU in_fsetD !in_fset1 H'kt !orbT //.
-          -- intros k Hkv.
-             rewrite setmE !ηE in_fsetU in_fsetD in_fset1 Hkv orbT.
-             destruct (k =P x); subst.
-             { rewrite Hkv // in Hxnv. }
-             reflexivity.
-        * apply (introF eqP) in n, n0.
-          rewrite /lift_substitution /= !setmE !ηE n n0.
-          destruct (x ∈ FV t) eqn:Hxt.
-          -- rewrite FV_after_substitute // in_fsetU in_fsetD in_fset1 Hkt andbT n /=.
-             destruct (y ∈ FV t) eqn:Hyt.
-             ++ rewrite FV_after_substitute // in_fsetU in_fsetD in_fset1 Hkt n0. reflexivity.
-             ++ rewrite FV_noop_substitute; cycle 1.
-                { rewrite Hyt //. }
-                rewrite Hkt. reflexivity.
-          -- rewrite FV_noop_substitute; cycle 1.
-             { rewrite Hxt //. }
-             rewrite Hkt.
-             destruct (y ∈ FV t) eqn:Hyt.
-             ++ rewrite FV_after_substitute // in_fsetU in_fsetD in_fset1 Hkt andbT n0. reflexivity.
-             ++ rewrite FV_noop_substitute; cycle 1.
-                { rewrite Hyt //. }
-                rewrite Hkt. reflexivity.
+        { rewrite Hk // in HynX. }
+        destruct (k =P x); subst.
+        { rewrite Hk // in HxnX. }
+        apply (introF eqP) in n, n0.
+        rewrite !ηE !in_fsetU Hk /= !setmE !ηE n n0 Hk /= -(rwP getmP) identityE Hk //.
+      + rewrite eq_sym in Hxny.
+        rewrite -(rwP eqP) in Hk. subst.
+        rewrite eq_refl /= Hxny /= ηE in_fsetU in_fset1 eq_refl orbC /= !setmE eq_refl /=.
+        apply α_equivalent'_identity. rewrite /Tm /in_mem /= FV_lift_substitution //.
+        * rewrite -(rwP fsubsetP). intros k Hk.
+          rewrite in_bigcup in Hk.
+          apply (rwP hasP) in Hk as [t' Ht']. apply (rwP pimfsetP) in Ht' as [k' Hk'].
+          rewrite setmE ηE in H0.
+          destruct (k' =P y); subst.
+          { inverts H0. auto. }
+          destruct (k' ∈ X) eqn:Hk'X; inverts H0.
+          rewrite in_fset1 -(rwP eqP) in H. subst. auto.
+        * rewrite codomm_update_substitution remmI; cycle 1.
+          { rewrite domm_η //. }
+          rewrite codomm_Tm_set_η fsubUset // fsubsetxx -(rwP fsubsetP) //.
+        * rewrite domm_set domm_η fsetUC /Tm /in_mem /= -(rwP fsubsetP) //.
+    - rewrite domm_map domm_set domm_η fsetUC //.
+    - reflexivity.
   Qed.
 
   (** Page 7: "A monad gives rise to its Kleisli-category...." *)
@@ -2349,14 +2302,16 @@ Module AlphaFacts (Import M : Alpha).
     - apply lemma9 with (R := 1__(domm ϕ)); auto.
       + apply identity_type.
       + apply identity_is_pullback. auto.
-      + apply α_equivalent'_supermap with (R__sub := 1__(FV t)); auto. introv Hkv.
+      + destruct H as [X H].
+        apply α_equivalent'_observably_equal with (R := 1__X); auto.
+        intros k v Hk Hkv.
         rewrite /fmap_to_Prop identityE in Hkv.
-        destruct (k ∈ FV t) eqn:Hkt; inverts Hkv.
+        destruct (k ∈ X) eqn:Hkt; inverts Hkv.
         apply (rwP fsubsetP) in Htϕ.
-        apply Htϕ in Hkt.
-        rewrite /fmap_to_Prop identityE Hkt //.
+        apply Htϕ in Hk.
+        rewrite /fmap_to_Prop identityE Hk //.
     - eapply lemma9 with (R := 1__(domm ϕ)) in H; auto.
-      + apply α_equivalent'_implies_α_equivalent. eauto.
+      + exists (domm ϕ). auto.
       + apply identity_type.
       + apply identity_is_pullback. auto.
   Qed.
