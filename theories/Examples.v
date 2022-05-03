@@ -9,11 +9,10 @@ Set Implicit Arguments.
 Set Bullet Behavior "Strict Subproofs".
 Unset Printing Implicit Defensive.
 
-Import Alpha.
-
 #[local] Open Scope fset_scope.
 #[local] Open Scope string_scope.
 
+Import AlphaString.
 Import AlphaStringFacts.
 
 (** Notation inspired by _PLFA_ (https://plfa.github.io/Lambda). *)
@@ -23,15 +22,20 @@ Import AlphaStringFacts.
 
 #[local] Infix "⋅" := application (at level 40).
 
+#[local] Notation a := "a".
+#[local] Notation x := "x".
+#[local] Notation y := "y".
+#[local] Notation z := "z".
+
 Example examples :
-  `"x" ≢_α `"y" /\
-  (λ"x" `"x") ≡_α (λ"y" `"y") /\
-  (λ"x" λ"y" `"x"⋅(`"x"⋅`"y")) ≡_α (λ"y" λ"x" `"y"⋅(`"y"⋅`"x")) /\
-  (λ"x" `"x") ≢_α (λ"x" `"x"⋅`"y") /\
-  (λ"x" `"x"⋅`"y") ≡_α (λ"a" `"a"⋅`"y") /\
-  (λ"x" `"x"⋅`"y") ≢_α (λ"x" `"x"⋅`"z") /\
-  (λ"x" λ"y" `"y"⋅`"x") ≢_α (λ"x" λ"y" `"x"⋅`"y") /\
-  (λ"x" λ"x" `"x") ≡_α (λ"y" λ"x" `"x").
+  `x ≢_α `y /\
+  (λ x `x) ≡_α (λ y `y) /\
+  (λ x λ y `x⋅(`x⋅`y)) ≡_α (λ y λ x `y⋅(`y⋅`x)) /\
+  (λ x `x) ≢_α (λ x `x⋅`y) /\
+  (λ x `x⋅`y) ≡_α (λ a `a⋅`y) /\
+  (λ x `x⋅`y) ≢_α (λ x `x⋅`z) /\
+  (λ x λ y `y⋅`x) ≢_α (λ x λ y `x⋅`y) /\
+  (λ x λ x `x) ≡_α (λ y λ x `x).
 Proof.
   unfold α_equivalent.
   repeat split; try apply negbT, Bool.not_true_iff_false; intros_all;

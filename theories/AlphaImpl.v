@@ -53,6 +53,24 @@ Module AlphaString <: Alpha.
     pose proof Fresh_seq_neq s as HnFresh. rewrite -> Forall_forall in HnFresh. apply In_mem, HnFresh in HFresh.
     contradiction.
   Qed.
+
+  Inductive term : Type :=
+  | abstraction : 𝒱 -> term -> term
+  | application : term -> term -> term
+  | variable : 𝒱 -> term.
+
+  #[export] Hint Constructors term : core.
+
+  Declare Scope term_scope.
+  Bind Scope term_scope with term.
+  Delimit Scope term_scope with term.
+
+  Fixpoint free_variables (t : term) : {fset 𝒱} :=
+    match t with
+    | abstraction x t => free_variables t :\ x
+    | application t1 t2 => free_variables t1 ∪ free_variables t2
+    | variable x => fset1 x
+    end.
 End AlphaString.
 
 Module AlphaStringFacts := AlphaFacts AlphaString.
@@ -89,6 +107,24 @@ Module AlphaNat <: Alpha.
     pose proof Fresh_seq_lt s as HltFresh. rewrite -> Forall_forall in HltFresh. apply In_mem, HltFresh in HFresh.
     rewrite ltnn // in HFresh.
   Qed.
+
+  Inductive term : Type :=
+  | abstraction : 𝒱 -> term -> term
+  | application : term -> term -> term
+  | variable : 𝒱 -> term.
+
+  #[export] Hint Constructors term : core.
+
+  Declare Scope term_scope.
+  Bind Scope term_scope with term.
+  Delimit Scope term_scope with term.
+
+  Fixpoint free_variables (t : term) : {fset 𝒱} :=
+    match t with
+    | abstraction x t => free_variables t :\ x
+    | application t1 t2 => free_variables t1 ∪ free_variables t2
+    | variable x => fset1 x
+    end.
 End AlphaNat.
 
 Module AlphaNatFacts := AlphaFacts AlphaNat.

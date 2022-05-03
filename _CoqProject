@@ -8,6 +8,7 @@ theories/Util/Compose.v
 theories/Util/Injective.v
 theories/Util/String.v
 theories/Util.v
+theories/AlphaPaper.v
 theories/Alpha.v
 theories/AlphaImpl.v
 theories/Examples.v
