@@ -1198,6 +1198,93 @@ Module AlphaPaperFacts (Import M : Alpha).
       rewrite /= mapmE Ht /= -(rwP getmP). apply getm_inv. rewrite invmK // (rwP injectivemP) //.
   Qed.
 
+  Notation "t '[' x '=' u ']' Fresh ',' X" :=
+    (⦇(1__X)[x,u]⦈ Fresh X t)
+      (at level 10, x at next level, u at next level, format "t [ x '=' u ] Fresh ',' X") :
+      term_scope.
+
+  #[local] Notation "t '[' x '⟵' u ']' Fresh ',' X" :=
+    (t[x=u]Fresh,X)
+      (at level 10, x at next level, u at next level, format "t [ x '⟵' u ] Fresh ',' X") :
+      term_scope.
+
+  Corollary variable_substitution_as_α_equivalent' :
+    forall Fresh X t x y,
+      Fresh_correct Fresh ->
+      t ∈ Tm (X ∪ {x}) ->
+      x ∉ X ->
+      y ∉ X ->
+      t[x⟵variable y]Fresh,(X ∪ {y}) ≡_α^((1__X)⦅y,x⦆) t.
+  Proof.
+    introv HFresh HtXx HxnX HynX.
+    assert (t[x⟵variable y]Fresh0,(X ∪ {y}) ≡_α^(1__(X ∪ {y})) ⦇mapm variable ((1__X)⦅x,y⦆)⦈ Fresh0 (X ∪ {y}) t).
+    { apply substitution_preserves_α_congruence' with (R := 1__(X ∪ {x})); auto.
+      - rewrite /is_subset_of !domm_set !domm_map !domm_identity codomm_identity fsetUA fsetUC fsubsetU; cycle 1.
+        { rewrite fsubsetxx //. }
+        rewrite -(rwP fsubsetP). intros z Hz.
+        rewrite -(rwP dommP) updateE identityE.
+        rewrite in_fsetU in_fset1 in Hz.
+        destruct (z =P x); subst; eauto.
+        simpl in Hz. rewrite Hz.
+        destruct (y =P z); subst; eauto. rewrite Hz // in HynX.
+      - apply identity_type.
+      - rewrite -(rwP fsubsetP). intros z Hz.
+        apply (rwP codomm_Tm_setP) in Hz as (u & Hz & Hu).
+        apply (rwP codommP) in Hu as [v Hv].
+        rewrite setmE mapmE identityE in_fsetU in_fset1 in Hv.
+        rewrite in_fsetU in_fset1.
+        destruct (v =P x); subst.
+        { inverts Hv. rewrite in_fset1 -(rwP eqP) in Hz. subst. rewrite eq_refl orbC //. }
+        destruct (v ∈ X) eqn:HvX.
+        { inverts Hv. rewrite in_fset1 -(rwP eqP) in Hz. subst. rewrite HvX //. }
+        destruct (v =P y); subst; inverts Hv.
+        rewrite in_fset1 -(rwP eqP) in Hz. subst. rewrite eq_refl orbC //.
+      - rewrite -(rwP fsubsetP). intros z Hz.
+        apply (rwP codomm_Tm_setP) in Hz as (u & Hz & Hu).
+        apply (rwP codommP) in Hu as [v Hv].
+        rewrite mapmE updateE identityE in Hv.
+        rewrite in_fsetU in_fset1.
+        destruct (v =P x); subst.
+        { inverts Hv. rewrite in_fset1 -(rwP eqP) in Hz. subst. rewrite eq_refl orbC //. }
+        destruct (v ∈ X) eqn:HvX; inverts Hv.
+        destruct (y =P v); subst; inverts H0.
+        rewrite in_fset1 -(rwP eqP) in Hz. subst. rewrite HvX //.
+      - intros x' y' Hx'y'.
+        rewrite /fmap_to_Prop identityE in_fsetU in_fset1 orbC in Hx'y'.
+        rewrite setmE !mapmE updateE !identityE in_fsetU in_fset1.
+        destruct (x' =P x); subst.
+        { inverts Hx'y'. rewrite eq_refl α_equivalent'_identity // /Tm /in_mem /= fsubsetU // fsubsetxx orbC //. }
+        destruct (x' ∈ X) eqn:Hx'X; inverts Hx'y'.
+        apply (introF eqP) in n.
+        rewrite /= n Hx'X.
+        destruct (y =P y'); subst;
+        rewrite -(rwP getmP) identityE in_fsetU in_fset1.
+        + rewrite eq_refl orbC //.
+        + rewrite Hx'X //.
+      - apply α_equivalent'_identity, HtXx. }
+    replace ((1__X)⦅y,x⦆) with (1__(X ∪ {y});;(((1__X)⦅x,y⦆)ᵒ)); cycle 1.
+    { apply eq_fmap. intros z.
+      rewrite update_converse // converse_identity composeE updateE !identityE in_fsetU in_fset1.
+      destruct (z ∈ X) eqn:HzX.
+      - rewrite /= updateE identityE HzX. destruct (z =P y); subst; auto.
+      - destruct (z =P y); subst; auto. rewrite /= updateE identityE eq_refl //. }
+    eapply α_equivalent'_compose; eauto.
+    apply lemma7; auto.
+    { apply partial_bijection_update, partial_bijection_identity. }
+    { rewrite -(rwP fsubsetP). intros z Hz.
+      apply (rwP codommP) in Hz as [v Hv].
+      rewrite updateE identityE in Hv.
+      rewrite in_fsetU in_fset1.
+      destruct (v =P x); subst. { inverts Hv. rewrite eq_refl orbT //. }
+      destruct (v ∈ X) eqn:HvX; cycle 1. { inverts Hv. }
+      destruct (y =P v); subst; inverts Hv. rewrite HvX //. }
+    rewrite /Tm /in_mem /= -(rwP fsubsetP). intros z Hz.
+    rewrite -(rwP dommP) updateE identityE.
+    rewrite /Tm /in_mem /= -(rwP fsubsetP) in HtXx. apply HtXx in Hz.
+    rewrite in_fsetU in_fset1 in Hz. apply (rwP orP) in Hz as [Hz|Hz]; rewrite Hz; eauto.
+    destruct (z =P x); subst; eauto. destruct (y =P z); subst; eauto. rewrite Hz // in HynX.
+  Qed.
+
   (** Page 6: "η(x) = x." *)
   Definition η__ X : {fmap 𝒱 → term} := 1__X.
 
@@ -1570,16 +1657,6 @@ Module AlphaPaperFacts (Import M : Alpha).
         * rewrite in_fsetU -(rwP orP). auto.
     - apply α_equivalent'_identity. rewrite /Tm /in_mem /= fsubD1set fsetUC // in Hgt.
   Qed.
-
-  Notation "t '[' x '=' u ']' Fresh ',' X" :=
-    (⦇(1__X)[x,u]⦈ Fresh X t)
-      (at level 10, x at next level, u at next level, format "t [ x '=' u ] Fresh ',' X") :
-      term_scope.
-
-  #[local] Notation "t '[' x '⟵' u ']' Fresh ',' X" :=
-    (t[x=u]Fresh,X)
-      (at level 10, x at next level, u at next level, format "t [ x '⟵' u ] Fresh ',' X") :
-      term_scope.
 
   Lemma codomm_update_substitution :
     forall f x t,
@@ -2290,7 +2367,8 @@ Module AlphaPaperFacts (Import M : Alpha).
 
   Module A := AlphaFacts M.
 
-  Lemma α_equivalent_adapter :
+  (* Using a non-Unicode name to make it easier to reference in prose. *)
+  Lemma alpha_equivalent_adapter :
     forall t u,
       t ≡_α u <-> A.α_equivalent t u.
   Proof.
@@ -2301,13 +2379,13 @@ Module AlphaPaperFacts (Import M : Alpha).
     apply A.α_equivalent'_implies_α_equivalent; eauto.
   Qed.
 
-  (* Using a non-Unicode name to make it easier to reference. *)
+  (* Using a non-Unicode name to make it easier to reference in prose. *)
   Theorem alpha_equivalent_correct :
     forall t u,
       t ≡_α u <-> A.trad_α t u.
   Proof.
     intros.
-    rewrite α_equivalent_adapter. apply A.α_equivalent_correct.
+    rewrite alpha_equivalent_adapter. apply A.α_equivalent_correct.
   Qed.
 
   Add Parametric Morphism R (HRinj : partial_bijection R) : (α_equivalent' R)
@@ -2317,10 +2395,10 @@ Module AlphaPaperFacts (Import M : Alpha).
     intros x x' Hαx y y' Hαy.
     apply Bool.eq_iff_eq_true; split; intros H.
     - change (A.α_equivalent' R x' y'). rewrite (@A.α_equivalent'_morph R HRinj x' x _ y' y) //;
-      apply α_equivalent_adapter; symmetry; auto.
+      apply alpha_equivalent_adapter; symmetry; auto.
     - destruct Hαx as [X HαX], Hαy as [Y HαY].
       change (A.α_equivalent' R x y). rewrite (@A.α_equivalent'_morph R HRinj x x' _ y y') //;
-      apply α_equivalent_adapter; unfold α_equivalent; eauto.
+      apply alpha_equivalent_adapter; unfold α_equivalent; eauto.
   Qed.
 
   Lemma lift_substitution_independent_of_codomm_subset :
@@ -2674,6 +2752,6 @@ Module AlphaPaperFacts (Import M : Alpha).
     introv HFresh1 HFresh2 HfY Htf.
     transitivity (A.lift_substitution' f Fresh1 t);
     rewrite lift_substitution_adapter //;
-    apply α_equivalent_adapter, A.lift_substitution'_independent_of_Fresh; auto.
+    apply alpha_equivalent_adapter, A.lift_substitution'_independent_of_Fresh; auto.
   Qed.
 End AlphaPaperFacts.
