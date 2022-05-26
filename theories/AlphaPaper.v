@@ -25,7 +25,7 @@ Obligation Tactic := program_simpl.
 #[local] Open Scope fset_scope.
 
 Module AlphaPaperFacts (Import M : Alpha).
-  #[local] Implicit Type Fresh : {fset 𝒱} -> 𝒱.
+  Implicit Type Fresh : {fset 𝒱} -> 𝒱.
 
   #[local] Notation "X '∪' '{' x '}'" :=
     (X :|: fset1 x)
