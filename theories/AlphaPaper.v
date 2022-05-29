@@ -336,7 +336,7 @@ Module AlphaPaperFacts (Import M : Alpha).
   Ltac by_cases_hook3 :=
     lazymatch goal with
     | H : context [ getm (?R⦅?x,?y⦆) ?z ] |- _ => rewrite [getm (R⦅x,y⦆) z]updateE in H
-    | |- context [ getm (?R⦅?x,?y⦆) ?z ]       => rewrite [getm (R⦅x,y⦆) z]updateE
+    | |- context [ getm (?R⦅?x,?y⦆) ?z ] => rewrite [getm (R⦅x,y⦆) z]updateE
     end || by_cases_hook2.
   Ltac by_cases_hook ::= by_cases_hook3.
 
@@ -478,11 +478,11 @@ Module AlphaPaperFacts (Import M : Alpha).
   Ltac by_cases_hook4 :=
     lazymatch goal with
     | H : context [ getm (1__?X) ?x ] |- _ => rewrite ?[getm (1__X) x]mapmE [getm (1__X) x]identityE in H
-    | |- context [ getm (1__?X) ?x ]       => rewrite ?[getm (1__X) x]mapmE [getm (1__X) x]identityE
-    | H : context [ domm (1__?X) ]    |- _ => rewrite ?[domm (1__X)]domm_map [domm (1__X)]domm_identity in H
-    | |- context [ domm (1__?X) ]          => rewrite ?[domm (1__X)]domm_map [domm (1__X)]domm_identity
-    | H : context [ codomm (1__?X) ]  |- _ => rewrite ?[codomm (1__X)]codomm_identity in H
-    | |- context [ codomm (1__?X) ]        => rewrite ?[codomm (1__X)]codomm_identity
+    | |- context [ getm (1__?X) ?x ] => rewrite ?[getm (1__X) x]mapmE [getm (1__X) x]identityE
+    | H : context [ domm (1__?X) ] |- _ => rewrite ?[domm (1__X)]domm_map [domm (1__X)]domm_identity in H
+    | |- context [ domm (1__?X) ] => rewrite ?[domm (1__X)]domm_map [domm (1__X)]domm_identity
+    | H : context [ codomm (1__?X) ] |- _ => rewrite ?[codomm (1__X)]codomm_identity in H
+    | |- context [ codomm (1__?X) ] => rewrite ?[codomm (1__X)]codomm_identity
     end || by_cases_hook3.
   Ltac by_cases_hook ::= by_cases_hook4.
 
@@ -556,9 +556,9 @@ Module AlphaPaperFacts (Import M : Alpha).
   Ltac by_cases_hook5 :=
     lazymatch goal with
     | H : context [ getm (?X;;?Y) ?x ] |- _ => rewrite [getm (X;;Y) x]composeE in H
-    | |- context [ getm (?X;;?Y) ?x ]       => rewrite [getm (X;;Y) x]composeE
+    | |- context [ getm (?X;;?Y) ?x ] => rewrite [getm (X;;Y) x]composeE
     | H : context [ (1__?X)ᵒ ] |- _ => rewrite [(1__X)ᵒ]converse_identity in H
-    | |- context [ (1__?X)ᵒ ]       => rewrite [(1__X)ᵒ]converse_identity
+    | |- context [ (1__?X)ᵒ ] => rewrite [(1__X)ᵒ]converse_identity
     end || by_cases_hook4.
   Ltac by_cases_hook ::= by_cases_hook5.
 
@@ -615,9 +615,9 @@ Module AlphaPaperFacts (Import M : Alpha).
   Ltac by_cases_hook6 :=
     lazymatch goal with
     | H : context [ (1__?X)⦅?x,?x⦆ ] |- _ => rewrite [(1__X)⦅x,x⦆]update_identity in H
-    | |- context [ (1__?X)⦅?x,?x⦆ ]       => rewrite [(1__X)⦅x,x⦆]update_identity
+    | |- context [ (1__?X)⦅?x,?x⦆ ] => rewrite [(1__X)⦅x,x⦆]update_identity
     | H : context [ (?R⦅?x,?y⦆)ᵒ ] |- _ => rewrite [(R⦅x,y⦆)ᵒ]update_converse in H
-    | |- context [ (?R⦅?x,?y⦆)ᵒ ]       => rewrite [(R⦅x,y⦆)ᵒ]update_converse
+    | |- context [ (?R⦅?x,?y⦆)ᵒ ] => rewrite [(R⦅x,y⦆)ᵒ]update_converse
     end || by_cases_hook5.
   Ltac by_cases_hook ::= by_cases_hook6.
 
@@ -789,13 +789,12 @@ Module AlphaPaperFacts (Import M : Alpha).
   Ltac by_cases_hook7 :=
     lazymatch goal with
     | H : is_true (?x ∈ codomm_Tm_set ?f) |- _ => apply (rwP codomm_Tm_setP) in H as (? & ? & ?)
-    | |- is_true (?x ∈ codomm_Tm_set ?f)       => rewrite -(rwP codomm_Tm_setP)
+    | |- is_true (?x ∈ codomm_Tm_set ?f) => rewrite -(rwP codomm_Tm_setP)
     | H : is_true (?x ∉ codomm_Tm_set ?f) |- _ => apply (rwP codomm_Tm_setPn) in H
-    | |- is_true (?x ∉ codomm_Tm_set ?f)       => apply (rwP codomm_Tm_setPn)
+    | |- is_true (?x ∉ codomm_Tm_set ?f) => apply (rwP codomm_Tm_setPn)
     | H : (?x ∈ codomm_Tm_set ?f) = false |- _ => apply negbT in H
-    | |- (?x ∈ codomm_Tm_set ?f) = false       => apply negbT
+    | |- (?x ∈ codomm_Tm_set ?f) = false => apply negbT
     end || by_cases_hook6.
-
   Ltac by_cases_hook ::= by_cases_hook7.
 
   (** Page 4: "Given a substitution f and x ∈ 𝒱, t ∈ Tm(Y) we define the update...." *)
