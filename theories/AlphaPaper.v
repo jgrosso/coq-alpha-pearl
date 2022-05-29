@@ -48,8 +48,8 @@ Module AlphaPaperFacts (Import M : Alpha).
 
   Definition Tm X t : bool := FV t ⊆ X.
 
+  (* See https://stackoverflow.com/a/51568428/2391244. *)
   Ltac by_cases_hook0 := idtac.
-
   Ltac by_cases_hook := by_cases_hook0.
 
   Ltac by_cases_loop depth :=
@@ -57,8 +57,8 @@ Module AlphaPaperFacts (Import M : Alpha).
     | 0 => idtac "by_cases: Recursion limit reached!"
     | S ?depth =>
         try (progress (repeat intro; subst; simpl in *; auto;
-                       repeat by_cases_hook;
-                       try discriminate; try contradiction);
+                     by_cases_hook;
+                     try discriminate; try contradiction);
              by_cases_loop depth)
     end.
 
@@ -70,61 +70,61 @@ Module AlphaPaperFacts (Import M : Alpha).
   Ltac by_cases_hook1 :=
     lazymatch goal with
     | H : exists _, _ |- _ => destruct H
-    | H1 : is_true ?b, H2 : is_true (negb ?b) |- _ => rewrite H1 // in H2
-    | H1 : is_true ?b, H2 : ?b = false        |- _ => rewrite H1 // in H2
-    | H1 : ?x = Some ?y, H2 : ?x = None       |- _ => rewrite H1 // in H2
+    | H1 : is_true ?b, H2 : is_true (negb ?b) |- _ => rewrite [b]H1 // in H2
+    | H1 : is_true ?b, H2 : ?b = false |- _ => rewrite [b]H1 // in H2
+    | H1 : ?x = Some ?y, H2 : ?x = None |- _ => rewrite [x]H1 // in H2
     | H : ex2 ?H1 ?H2 |- _ => destruct H
     | H : is_true (has ?f ?s) |- _ => apply (rwP hasP) in H as []
-    | H : has ?f ?s = false   |- _ => apply negbT, (rwP hasPn) in H
+    | H : has ?f ?s = false |- _ => apply negbT, (rwP hasPn) in H
     | H : ?b = true |- _ => fold (is_true b) in H
     | H : Some ?x = Some ?y |- _ => inverts H
     | H : Some ?x = getm ?m ?y |- _ => symmetry in H
-    | H : None = getm ?m ?x    |- _ => symmetry in H
+    | H : None = getm ?m ?x |- _ => symmetry in H
     | H : ?H1 <-> ?H2 |- _ => unfold iff in H
     | H : ?H1 /\ ?H2 |- _ => destruct H
     | H : ?H1 \/ ?H2 |- _ => destruct H
     | H : is_true (?b1 && ?b2) |- _ => apply (rwP andP) in H
-    | H : ?b1 && ?b2 = false   |- _ => apply Bool.andb_false_iff in H
+    | H : ?b1 && ?b2 = false |- _ => apply Bool.andb_false_iff in H
     | H : is_true (?b1 || ?b2) |- _ => apply (rwP orP) in H
-    | H : ?b1 || ?b2 = false   |- _ => apply Bool.orb_false_iff in H
+    | H : ?b1 || ?b2 = false |- _ => apply Bool.orb_false_iff in H
     | H : is_true (?x ∈ domm ?f) |- _ => apply (rwP dommP) in H as []
     | H : is_true (?x ∉ domm ?f) |- _ => apply (rwP dommPn) in H
     | H : is_true (?x ∉ FSet.fsval (domm ?f)) |- _ => apply (rwP dommPn) in H
     | H : is_true (?x ∈ codomm ?f) |- _ => apply (rwP codommP) in H as []
     | H : is_true (?x ∉ codomm ?f) |- _ => rewrite -(rwP codommPn) in H
-    | H : context [ ?X ∪ ?Y ⊆ ?Z ] |- _ => rewrite fsubUset in H
+    | H : context [ ?X ∪ ?Y ⊆ ?Z ] |- _ => rewrite [X ∪ Y ⊆ Z]fsubUset in H
     | H : {subset ?X ∪ ?Y <= ?Z} |- _ => rewrite (rwP fsubsetP) fsubUset in H
     | H : context [ ?X ∪ {?x} ] |- _ => rewrite [X ∪ {x}]fsetUC in H
-    | H : context [ fset1 ?x ⊆ ?X ] |- _ => rewrite fsub1set in H
+    | H : context [ fset1 ?x ⊆ ?X ] |- _ => rewrite [fset1 x ⊆ X]fsub1set in H
     | H : is_true (?x ∈ FSet.fsval (pimfset ?f [:: ?s])) |- _ => rewrite -(rwP (@pimfsetP _ _ _ (fset1 s) _)) in H
-    | H : is_true (?x ∈ FSet.fsval (pimfset ?f ?s))     |- _ => rewrite -(rwP pimfsetP) in H
+    | H : is_true (?x ∈ FSet.fsval (pimfset ?f ?s)) |- _ => rewrite -(rwP pimfsetP) in H
     | H : context [ _ ∈ ⋃_(_ ∈ _) _ ] |- _ => rewrite in_bigcup in H
     | H : is_true (_ ∉ ⋃_(_ ∈ _) _) |- _ => apply negbTE in H
     | H : is_true (injectivem ?m) |- _ => rewrite -(rwP injectivemP) in H
     | H : is_true (?X ⊆ ?Y) |- _ => rewrite -(rwP fsubsetP) in H
-    | H : context [ ?x ∈ ?X ∪ ?Y ]   |- _ => rewrite in_fsetU in H
-    | H : context [ ?x ∈ ?X ∩ ?Y ]   |- _ => rewrite in_fsetI in H
-    | H : context [ ?x ∈ ?X :\: ?Y ] |- _ => rewrite in_fsetD in H
-    | H : context [ ?x ∈ fset1 ?y ]  |- _ => rewrite in_fset1 in H
+    | H : context [ ?x ∈ ?X ∪ ?Y ] |- _ => rewrite [x ∈ X ∪ Y]in_fsetU in H
+    | H : context [ ?x ∈ ?X ∩ ?Y ] |- _ => rewrite [x ∈ X ∩ Y]in_fsetI in H
+    | H : context [ ?x ∈ ?X :\: ?Y ] |- _ => rewrite [x ∈ X :\: Y]in_fsetD in H
+    | H : context [ ?x ∈ fset1 ?y ] |- _ => rewrite [x ∈ fset1 y]in_fset1 in H
     | H : context [ ?x ∈ Tm ?y ] |- _ => rewrite /Tm /in_mem /= in H
-    | H : context [ ?x == ?x ] |- _ => rewrite eq_refl in H
+    | H : context [ ?x == ?x ] |- _ => rewrite [x == x]eq_refl in H
     | H : context [ ?x == ?y ] |- _ => destruct (x =P y)
-    | H : context [ ?b || true ]   |- _ => rewrite orbT in H
-    | H : context [ ?b || false ]  |- _ => rewrite orbF in H
-    | H : context [ ?b && true ]  |- _ => rewrite andbT in H
-    | H : context [ ?b && false ] |- _ => rewrite andbF in H
-    | H : context [ getm (setm ?m ?x ?y) ?z ]  |- _ => rewrite setmE in H
-    | H : context [ getm (mapm ?f ?m) ?x ]     |- _ => rewrite mapmE in H
-    | H : context [ getm (remm ?m ?x) ?y ]     |- _ => rewrite remmE in H
-    | H : context [ getm (mkfmapf ?f ?m) ?x ]  |- _ => rewrite mkfmapfE in H
-    | H : context [ getm (mkfmapfp ?f ?m) ?x ] |- _ => rewrite mkfmapfpE in H
-    | H : context [ domm (setm ?m ?x ?y) ] |- _ => rewrite domm_set in H
-    | H : context [ domm (mapm ?f ?m) ]    |- _ => rewrite domm_map in H
-    | H : context [ domm (mkfmapf ?f ?m) ] |- _ => rewrite domm_mkfmapf in H
+    | H : context [ ?b || true ] |- _ => rewrite [b || true]orbT in H
+    | H : context [ ?b || false ] |- _ => rewrite [b || false]orbF in H
+    | H : context [ ?b && true ] |- _ => rewrite [b && true]andbT in H
+    | H : context [ ?b && false ] |- _ => rewrite [b && false]andbF in H
+    | H : context [ getm (setm ?m ?x ?y) ?z ] |- _ => rewrite [getm (setm m x y) z]setmE in H
+    | H : context [ getm (mapm ?f ?m) ?x ] |- _ => rewrite [getm (mapm f m) x]mapmE in H
+    | H : context [ getm (remm ?m ?x) ?y ] |- _ => rewrite [getm (remm m x) y]remmE in H
+    | H : context [ getm (mkfmapf ?f ?m) ?x ] |- _ => rewrite [getm (mkfmapf f m) x]mkfmapfE in H
+    | H : context [ getm (mkfmapfp ?f ?m) ?x ] |- _ => rewrite [getm (mkfmapfp f m) x]mkfmapfpE in H
+    | H : context [ domm (setm ?m ?x ?y) ] |- _ => rewrite [domm (setm m x y)]domm_set in H
+    | H : context [ domm (mapm ?f ?m) ] |- _ => rewrite [domm (mapm f m)]domm_map in H
+    | H : context [ domm (mkfmapf ?f ?m) ] |- _ => rewrite [domm (mkfmapf f m)]domm_mkfmapf in H
     | H : context [ fmap_to_Prop ] |- _ => unfold fmap_to_Prop in H
     | H : context [ omap ?f (getm ?m ?x) = ?y ] |- _ => destruct (getm m x) eqn:?
     | H : context [ ?y = omap ?f (getm ?m ?x) ] |- _ => destruct (getm m x) eqn:?
-    | X : {fset ?T}, H : context [ fset ?X ] |- _ => rewrite fsvalK in H
+    | X : {fset ?T}, H : context [ fset ?X ] |- _ => rewrite [fset X]fsvalK in H
     | H : (?x ∈ ?X) = false |- _ => apply negbT in H
     | x := _ |- _ => subst x
     |   H1 : ?f ?x = ?y
@@ -173,41 +173,41 @@ Module AlphaPaperFacts (Import M : Alpha).
     | |- ?b \/ is_true false => left
     | |- ?b1 /\ ?b2 => split
     | |- is_true (?b1 && ?b2) => rewrite -(rwP andP)
-    | |- is_true (?b1 || ?b2)  => rewrite -(rwP orP)
+    | |- is_true (?b1 || ?b2) => rewrite -(rwP orP)
     | |- ?b1 && ?b2 = false => apply Bool.andb_false_iff
-    | |- ?b1 || ?b2 = false  => apply Bool.orb_false_iff
+    | |- ?b1 || ?b2 = false => apply Bool.orb_false_iff
     | |- is_true (?X ⊆ ?Y) => rewrite -(rwP fsubsetP)
     | |- is_true (injectivem ?f) => rewrite -(rwP injectivemP)
     | |- is_true (?x ∈ FSet.fsval (pimfset ?f [:: ?s])) => rewrite -(rwP (@pimfsetP _ _ _ (fset1 s) _))
-    | |- is_true (?x ∈ FSet.fsval (pimfset ?f ?s))     => rewrite -(rwP pimfsetP)
+    | |- is_true (?x ∈ FSet.fsval (pimfset ?f ?s)) => rewrite -(rwP pimfsetP)
     | |- context [ _ ∈ ⋃_(_ ∈ _) _ ] => rewrite in_bigcup
     | |- is_true (has ?f ?s) => apply (rwP hasP)
-    | |- context [ ?x ∈ ?X ∪ ?Y ]   => rewrite in_fsetU
-    | |- context [ ?x ∈ ?X ∩ ?Y ]   => rewrite in_fsetI
-    | |- context [ ?x ∈ fset1 ?y ]  => rewrite in_fset1
-    | |- context [ ?x ∈ ?X :\: ?Y ] => rewrite in_fsetD
+    | |- context [ ?x ∈ ?X ∪ ?Y ] => rewrite [x ∈ X ∪ Y]in_fsetU
+    | |- context [ ?x ∈ ?X ∩ ?Y ] => rewrite [x ∈ X ∩ Y]in_fsetI
+    | |- context [ ?x ∈ fset1 ?y ] => rewrite [x ∈ fset1 y]in_fset1
+    | |- context [ ?x ∈ ?X :\: ?Y ] => rewrite [x ∈ X :\: Y]in_fsetD
     | |- context [ ?X ∪ {?x} ] => rewrite [X ∪ {x}]fsetUC
     | |- context [ ?x ∈ Tm ?X ] => rewrite /Tm /in_mem /=
-    | |- context [ ?x == ?x ] => rewrite eq_refl
+    | |- context [ ?x == ?x ] => rewrite [x == x]eq_refl
     | |- context [ ?x == ?y ] => destruct (x =P y)
     | |- context [ fmap_to_Prop ] => unfold fmap_to_Prop
-    | |- context [ ?b || true ]   => rewrite orbT
-    | |- context [ ?b || false ]  => rewrite orbF
-    | |- context [ ?b && true ]  => rewrite andbT
-    | |- context [ ?b && false ] => rewrite andbF
-    | |- context [ getm (setm ?m ?x ?y) ?z ]  => rewrite setmE
-    | |- context [ getm (mapm ?f ?m) ?x ]     => rewrite mapmE
-    | |- context [ getm (remm ?m ?x) ?y ]     => rewrite remmE
-    | |- context [ getm (mkfmapf ?f ?m) ?x ]  => rewrite mkfmapfE
-    | |- context [ getm (mkfmapfp ?f ?m) ?x ] => rewrite mkfmapfpE
-    | |- context [ domm (setm ?m ?x ?y) ] => rewrite domm_set
-    | |- context [ domm (mapm ?f ?m) ]    => rewrite domm_map
-    | |- context [ domm (mkfmapf ?f ?m) ] => rewrite domm_mkfmapf
+    | |- context [ ?b || true ] => rewrite [b || true]orbT
+    | |- context [ ?b || false ] => rewrite [b || false]orbF
+    | |- context [ ?b && true ] => rewrite [b && true]andbT
+    | |- context [ ?b && false ] => rewrite [b && false]andbF
+    | |- context [ getm (setm ?m ?x ?y) ?z ]  => rewrite [getm (setm m x y) z]setmE
+    | |- context [ getm (mapm ?f ?m) ?x ] => rewrite [getm (mapm f m) x]mapmE
+    | |- context [ getm (remm ?m ?x) ?y ] => rewrite [getm (remm m x) y]remmE
+    | |- context [ getm (mkfmapf ?f ?m) ?x ] => rewrite [getm (mkfmapf f m) x]mkfmapfE
+    | |- context [ getm (mkfmapfp ?f ?m) ?x ] => rewrite [getm (mkfmapfp f m) x]mkfmapfpE
+    | |- context [ domm (setm ?m ?x ?y) ] => rewrite [domm (setm m x y)]domm_set
+    | |- context [ domm (mapm ?f ?m) ] => rewrite [domm (mapm f m)]domm_map
+    | |- context [ domm (mkfmapf ?f ?m) ] => rewrite [domm (mkfmapf f m)]domm_mkfmapf
     | |- is_true (?x ∈ domm ?f) => apply (rwP dommP)
     | |- is_true (?x ∉ domm ?f) => apply (rwP dommPn)
     | |- is_true (?x ∈ codomm ?f) => rewrite -(rwP codommP)
     | |- is_true (?x ∉ codomm ?f) => rewrite -(rwP codommPn)
-    | X : {fset ?T} |- context [ fset ?X ] => rewrite fsvalK
+    | X : {fset ?T} |- context [ fset ?X ] => rewrite [fset X]fsvalK
     | |- omap ?f (getm ?m ?x) = _  => destruct (getm m x) eqn:?
     | |- ?y = omap ?f (getm ?m ?x) => destruct (getm m x) eqn:?
     |   H1 : getm ?f ?x = ?y
@@ -247,7 +247,7 @@ Module AlphaPaperFacts (Import M : Alpha).
         match type of X with
         | {fmap _ → _} => apply eq_fmap; intro
         | {fmap _ -> _} => apply eq_fmap; intro
-        | {fset _}     => apply eq_fset; intro; apply Bool.eq_iff_eq_true
+        | {fset _} => apply eq_fset; intro; apply Bool.eq_iff_eq_true
         end
     end || by_cases_hook0.
   Ltac by_cases_hook ::= by_cases_hook1.
@@ -304,7 +304,7 @@ Module AlphaPaperFacts (Import M : Alpha).
   Ltac by_cases_hook2 :=
     lazymatch goal with
     | H : context [ ?R ⊆ ?X × ?Y ] |- _ => unfold is_subset_of in H
-    | |- context [ ?R ⊆ ?X × ?Y ]       => unfold is_subset_of
+    | |- context [ ?R ⊆ ?X × ?Y ] => unfold is_subset_of
     end || by_cases_hook1.
   Ltac by_cases_hook ::= by_cases_hook2.
 
@@ -335,8 +335,8 @@ Module AlphaPaperFacts (Import M : Alpha).
 
   Ltac by_cases_hook3 :=
     lazymatch goal with
-    | H : context [ getm (?R⦅?x,?y⦆) ?z ] |- _ => rewrite updateE in H
-    | |- context [ getm (?R⦅?x,?y⦆) ?z ]       => rewrite updateE
+    | H : context [ getm (?R⦅?x,?y⦆) ?z ] |- _ => rewrite [getm (R⦅x,y⦆) z]updateE in H
+    | |- context [ getm (?R⦅?x,?y⦆) ?z ]       => rewrite [getm (R⦅x,y⦆) z]updateE
     end || by_cases_hook2.
   Ltac by_cases_hook ::= by_cases_hook3.
 
@@ -477,12 +477,12 @@ Module AlphaPaperFacts (Import M : Alpha).
 
   Ltac by_cases_hook4 :=
     lazymatch goal with
-    | H : context [ getm (1__?X) ?x ] |- _ => rewrite ?mapmE identityE in H
-    | |- context [ getm (1__?X) ?x ]       => rewrite ?mapmE identityE
-    | H : context [ domm (1__?X) ]    |- _ => rewrite ?domm_map domm_identity in H
-    | |- context [ domm (1__?X) ]          => rewrite ?domm_map domm_identity
-    | H : context [ codomm (1__?X) ]  |- _ => rewrite ?codomm_identity in H
-    | |- context [ codomm (1__?X) ]        => rewrite ?codomm_identity
+    | H : context [ getm (1__?X) ?x ] |- _ => rewrite ?[getm (1__X) x]mapmE [getm (1__X) x]identityE in H
+    | |- context [ getm (1__?X) ?x ]       => rewrite ?[getm (1__X) x]mapmE [getm (1__X) x]identityE
+    | H : context [ domm (1__?X) ]    |- _ => rewrite ?[domm (1__X)]domm_map [domm (1__X)]domm_identity in H
+    | |- context [ domm (1__?X) ]          => rewrite ?[domm (1__X)]domm_map [domm (1__X)]domm_identity
+    | H : context [ codomm (1__?X) ]  |- _ => rewrite ?[codomm (1__X)]codomm_identity in H
+    | |- context [ codomm (1__?X) ]        => rewrite ?[codomm (1__X)]codomm_identity
     end || by_cases_hook3.
   Ltac by_cases_hook ::= by_cases_hook4.
 
@@ -555,10 +555,10 @@ Module AlphaPaperFacts (Import M : Alpha).
 
   Ltac by_cases_hook5 :=
     lazymatch goal with
-    | H : context [ getm (?X;;?Y) ?x ] |- _ => rewrite composeE in H
-    | |- context [ getm (?X;;?Y) ?x ]       => rewrite composeE
-    | H : context [ (1__?X)ᵒ ] |- _ => rewrite converse_identity in H
-    | |- context [ (1__?X)ᵒ ]       => rewrite converse_identity
+    | H : context [ getm (?X;;?Y) ?x ] |- _ => rewrite [getm (X;;Y) x]composeE in H
+    | |- context [ getm (?X;;?Y) ?x ]       => rewrite [getm (X;;Y) x]composeE
+    | H : context [ (1__?X)ᵒ ] |- _ => rewrite [(1__X)ᵒ]converse_identity in H
+    | |- context [ (1__?X)ᵒ ]       => rewrite [(1__X)ᵒ]converse_identity
     end || by_cases_hook4.
   Ltac by_cases_hook ::= by_cases_hook5.
 
@@ -614,10 +614,10 @@ Module AlphaPaperFacts (Import M : Alpha).
 
   Ltac by_cases_hook6 :=
     lazymatch goal with
-    | H : context [ (1__?X)⦅?x,?x⦆ ] |- _ => rewrite update_identity in H
-    | |- context [ (1__?X)⦅?x,?x⦆ ]       => rewrite update_identity
-    | H : context [ (?R⦅?x,?y⦆)ᵒ ] |- _ => rewrite update_converse in H
-    | |- context [ (?R⦅?x,?y⦆)ᵒ ]       => rewrite update_converse
+    | H : context [ (1__?X)⦅?x,?x⦆ ] |- _ => rewrite [(1__X)⦅x,x⦆]update_identity in H
+    | |- context [ (1__?X)⦅?x,?x⦆ ]       => rewrite [(1__X)⦅x,x⦆]update_identity
+    | H : context [ (?R⦅?x,?y⦆)ᵒ ] |- _ => rewrite [(R⦅x,y⦆)ᵒ]update_converse in H
+    | |- context [ (?R⦅?x,?y⦆)ᵒ ]       => rewrite [(R⦅x,y⦆)ᵒ]update_converse
     end || by_cases_hook5.
   Ltac by_cases_hook ::= by_cases_hook6.
 
@@ -933,9 +933,6 @@ Module AlphaPaperFacts (Import M : Alpha).
     exists Y.
     apply substitution_preserves_α_congruence' with (R := 1__X) (S := 1__Y); by_cases.
     - apply (rwP dommP). rewrite HX. by_cases.
-    - specialize (Hα x'). by_cases.
-      assert (x' ∈ domm g). { rewrite HX. by_cases. }
-      apply Hα. by_cases.
     - apply α_equivalent'_observably_equal with (R := 1__X'); by_cases. apply Hfgt in H. by_cases.
   Qed.
 
@@ -1255,33 +1252,24 @@ Module AlphaPaperFacts (Import M : Alpha).
     rewrite /Tm /in_mem /= -!(rwP fsubsetP) in Hu, Hv.
     etransitivity.
     { applys_eq (@monad_substitution3 Fresh0 X ((1__X)[y,v]) ((1__(X ∪ {y}))[x,u]) t); by_cases.
-      - cut (x0 ∈ y |: X : Prop); by_cases.
       - cut (x0 ∈ y |: (x |: X) : Prop); by_cases. }
     symmetry. etransitivity.
     { applys_eq (@monad_substitution3 Fresh0 X ((1__X)[x,u[y⟵v]Fresh0,X]) ((1__(X ∪ {x}))[y,v]) t); by_cases.
-      - assert (x0 ∈ X); by_cases.
-      - rewrite FV_lift_substitution in H; by_cases. assert (x1 ∈ y |: X); by_cases.
-      - assert (x0 ∈ y |: (x |: X)); by_cases. }
+      rewrite FV_lift_substitution in H; by_cases. }
     apply substitution_preserves_α_congruence; by_cases.
     - rewrite FV_lift_substitution in H; by_cases.
-      + rewrite FV_lift_substitution in H0; by_cases. assert (x1 ∈ y |: X); by_cases.
-      + rewrite FV_lift_substitution in H; by_cases. assert (x2 ∈ y |: X); by_cases.
-      + assert (x1 ∈ X); by_cases.
-    - rewrite FV_lift_substitution in H; by_cases. assert (x1 ∈ y |: X); by_cases.
-    - rewrite FV_lift_substitution in H; by_cases. assert (x1 ∈ y |: X); by_cases.
-    - apply α_equivalent'_identity; by_cases.
-      rewrite FV_lift_substitution in H; by_cases.
-      assert (x1 ∈ y |: X); by_cases.
+      + rewrite FV_lift_substitution in H0; by_cases.
+      + rewrite FV_lift_substitution in H; by_cases.
+    - rewrite FV_lift_substitution in H; by_cases.
+    - rewrite FV_lift_substitution in H; by_cases.
     - pose proof (substitution_law1 X v (u[y⟵v]Fresh0,X) x HFresh) as [Y Hα]; by_cases.
-      { rewrite FV_lift_substitution in H; by_cases. assert (x1 ∈ y |: X); by_cases. }
+      { rewrite FV_lift_substitution in H; by_cases. }
       apply α_equivalent'_observably_equal with (R := 1__Y); by_cases.
       rewrite FV_lift_substitution in H; by_cases.
-      + rewrite FV_lift_substitution in H0; by_cases.
-        * assert (y0 ∈ X); by_cases.
-        * assert (x0 ∈ y |: X); by_cases.
-      + rewrite FV_lift_substitution in H; by_cases. assert (x1 ∈ y |: X); by_cases.
-      + assert (x0 ∈ X); by_cases.
-    - assert (x0 ∈ y |: (x |: X)); by_cases.
+      + rewrite FV_lift_substitution in H0; by_cases. assert (y0 ∈ X); by_cases.
+      + rewrite FV_lift_substitution in H; by_cases.
+    - apply α_equivalent'_identity. by_cases.
+      rewrite FV_lift_substitution in H; by_cases.
     - reflexivity.
   Qed.
 
@@ -1389,19 +1377,12 @@ Module AlphaPaperFacts (Import M : Alpha).
         else omap S (getm ϕ y).
   Proof. unfold update_ϕ. by_cases. Qed.
 
-  Ltac by_cases_hyps8 cont := by_cases_hyps7
-    ltac:(lazymatch goal with
-          | H : context [ getm (update_ϕ _ _) _] |- _ => rewrite update_ϕE in H
-          end || cont).
-
-  Ltac by_cases_goal8 cont := by_cases_goal7
-    ltac:(lazymatch goal with
-          | |- context [ getm (update_ϕ _ _) _] => rewrite update_ϕE
-          end || cont).
-
-  Ltac by_cases_overall8 := by_cases_overall7.
-
-  Ltac by_cases ::= by_cases' by_cases_hyps8 by_cases_goal8 by_cases_overall8.
+  Ltac by_cases_hook8 :=
+    lazymatch goal with
+    | H : context [ getm (update_ϕ ?m ?x) ?y] |- _ => rewrite [getm (update_ϕ m x) y]update_ϕE in H
+    | |- context [ getm (update_ϕ ?m ?x) ?y] => rewrite [getm (update_ϕ m x) y]update_ϕE
+    end || by_cases_hook7.
+  Ltac by_cases_hook ::= by_cases_hook8.
 
   Definition codomm_𝐍 ϕ : nat :=
     S (\max_(i <- codomm ϕ) i).
@@ -1504,10 +1485,10 @@ Module AlphaPaperFacts (Import M : Alpha).
       is_pullback (R⦅x,y⦆) (ϕ^+x) (ψ^+y).
   Proof.
     by_cases.
-    - assert (x0 ∈ domm R) by by_cases. apply H in H3. by_cases.
+    - assert (x0 ∈ domm R) by by_cases. apply H in H4. by_cases.
     - apply H2 in H5. by_cases.
-    - assert (y0 ∈ codomm R) by by_cases. apply H4 in H3. by_cases.
-    - assert (x0 ∈ domm R) by by_cases. apply H in H3. by_cases.
+    - assert (y0 ∈ codomm R) by by_cases. apply H3 in H4. by_cases.
+    - assert (x0 ∈ domm R) by by_cases. apply H in H4. by_cases.
     - assert (R x0 y0). { apply H2. by_cases. } by_cases.
     - assert (R x0 y0). { apply H2. by_cases. } by_cases.
     - assert (R x0 y0). { apply H2. by_cases. } by_cases.
@@ -1644,7 +1625,7 @@ Module AlphaPaperFacts (Import M : Alpha).
       exists Y__sub. rewrite /= -converse_identity -update_converse //.
       set (R := ((1__Y__sub)⦅Fresh0 Y__sub,Fresh0 Y__super⦆)).
       assert (Y__sub ∪ {Fresh0 Y__sub} = domm R) as HR.
-      { by_cases. apply HfY__super in H0. by_cases. }
+      { by_cases. apply HfY__super in Heqb. by_cases. }
       assert (⦇f[s,variable (Fresh0 Y__super)]⦈ Fresh0 (Y__super ∪ {Fresh0 Y__super}) t ≡_α ⦇mapm variable R⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__super}) (⦇f[s,variable (Fresh0 Y__sub)]⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__sub}) t)).
       { etransitivity; cycle 1.
         { symmetry.
@@ -1653,16 +1634,16 @@ Module AlphaPaperFacts (Import M : Alpha).
             with ((⦇mapm variable R⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__super}) ∘ ⦇f[s,variable (Fresh0 Y__sub)]⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__sub})) t : term); auto.
           rewrite HR. replace (domm R) with (domm (mapm variable R)) by by_cases.
           apply monad_substitution3; by_cases.
-          - apply HfY__super in H1. by_cases.
-          - assert (x ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H2. by_cases.
+          - apply HfY__super in Heqb. by_cases.
+          - assert (x ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H1. by_cases.
           - assert (x ∈ FV t :\ s) by by_cases. apply HtX in H0. by_cases. }
         simpl.
         transitivity (⦇f[s,variable (Fresh0 Y__super)]⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__super}) t); cycle 1.
         { apply substitution_preserves_α_congruence; auto.
           - by_cases. apply HfY__sub. by_cases.
           - by_cases. rewrite FV_lift_substitution in H; by_cases.
-            + apply HfY__super in H0. by_cases.
-            + assert (x0 ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H1. by_cases.
+            + apply HfY__super in Heqb. by_cases.
+            + assert (x0 ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H0. by_cases.
           - by_cases.
           - intros x Hx.
             rewrite mapmE !setmE.
@@ -1685,8 +1666,8 @@ Module AlphaPaperFacts (Import M : Alpha).
             rewrite (@α_equivalent'_morph (1__(Y__sub ∪ {Fresh0 Y__super})) _ u (⦇mapm variable R⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__super}) u) Hα (⦇mapm variable R⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__super}) u) (⦇mapm variable R⦈ Fresh0 (Y__sub ∪ {Fresh0 Y__super}) u)) //.
             + apply α_equivalent'_identity. by_cases.
               rewrite FV_lift_substitution // in H; by_cases.
-              * apply HfY__super in H0. by_cases.
-              * assert (x1 ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H1. by_cases.
+              * apply HfY__super in Heqb. by_cases.
+              * assert (x1 ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H0. by_cases.
             + reflexivity.
           - by_cases. apply (rwP dommP), HtX. by_cases.
           - reflexivity. }
@@ -1698,9 +1679,9 @@ Module AlphaPaperFacts (Import M : Alpha).
       { by_cases. }
       { reflexivity. }
       apply lemma7; by_cases.
-      + apply HfY__super in H1. by_cases.
+      + apply HfY__super in Heqb. by_cases.
       + rewrite FV_lift_substitution in H0; by_cases.
-        * assert (x ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H4. by_cases.
+        * assert (x ∈ codomm_Tm_set f) by by_cases. apply HfY__sub in H3. by_cases.
         * apply HfY__sub. by_cases.
         * apply (rwP dommP), HtX. by_cases.
     - exists Y__super. by_cases.
