@@ -18,6 +18,6 @@ Infix "∘" := composition (at level 40).
   CanCompose (B -> C) {fmap A → B} {fmap A → C} :=
   { composition (f : B -> C) (g : {fmap A → B}) := mapm f g }.
 
-#[global] Instance function_and_function_CanCompose_as_function (A : ordType) (B C : Type) :
+#[global] Instance function_and_function_CanCompose_as_function (A B C : Type) :
   CanCompose (B -> C) (A -> B) (A -> C) :=
   { composition (f : B -> C) (g : A -> B) a := f (g a) }.

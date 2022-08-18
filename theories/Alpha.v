@@ -2916,198 +2916,6 @@ Module AlphaFacts (Import M : Alpha).
       + apply identity_is_pullback. auto.
   Qed.
 
-  #[local] Reserved Notation "'↑_' c '^' d dBt"
-    (at level 40, c at level 0, d at level 0, format "'↑_' c '^' d  dBt").
-
-  Fixpoint de_Bruijn_shift d c dBt : de_Bruijn_term :=
-    match dBt with
-    | de_Bruijn_variable k =>
-      if k < c
-      then k
-      else k + d
-    | de_Bruijn_abstraction dBt =>
-      de_Bruijn_abstraction (↑_(c + 1)^d dBt)
-    | de_Bruijn_application dBt dBu =>
-      de_Bruijn_application (↑_c^d dBt) (↑_c^d dBu)
-    end
-
-  where "'↑_' c '^' d dBt" := (de_Bruijn_shift d c dBt).
-
-  #[local] Notation "'↑^' d dBt" :=
-    (↑_0^d dBt)
-      (at level 40, d at level 0, format "'↑^' d  dBt").
-
-  Example TAPL_6_2_2_1 : ↑^2 (de_Bruijn_abstraction (de_Bruijn_abstraction (de_Bruijn_application 1 (de_Bruijn_application 0 2)))) = de_Bruijn_abstraction (de_Bruijn_abstraction (de_Bruijn_application 1 (de_Bruijn_application 0 4))).
-  Proof. reflexivity. Qed.
-
-  Example TAPL_6_2_2_2 : ↑^2 (de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 1) (de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 1) 2)))) = de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 3) (de_Bruijn_abstraction (de_Bruijn_application (de_Bruijn_application 0 1) 4))).
-  Proof. reflexivity. Qed.
-
-  Lemma TAPL_6_2_3 :
-    forall n dBt c d,
-      dBt ∈ Tm^db n ->
-      ↑_c^d dBt ∈ Tm^db (n + d).
-  Proof.
-    rewrite /in_mem /=.
-    introv HdBtn.
-    gen n c d. induction dBt; intros; repeat rewrite /in_mem /=.
-    - eapply IHdBt in HdBtn; eauto.
-    - apply (rwP andP) in HdBtn as [HdBt1n HdBt2n].
-      rewrite <- (rwP (@andP (Tm^db (n + d) (↑_c^d dBt1)) (Tm^db (n + d) (↑_c^d dBt2)))).
-      split; eauto.
-    - rewrite /nat_to_pred.
-      destruct (n < c) eqn:?.
-      + rewrite ltn_addr //.
-      + rewrite ltn_add2r //.
-  Qed.
-
-  #[local] Reserved Notation "'[' j '↦' s ']' dBt"
-    (at level 40, j at level 200, s at level 200, format "[ j '↦' s ] dBt").
-
-  Fixpoint de_Bruijn_substitution j (s : de_Bruijn_term) dBt : de_Bruijn_term :=
-    match dBt with
-    | de_Bruijn_variable k =>
-      if k == j
-      then s
-      else de_Bruijn_variable k
-    | de_Bruijn_abstraction t1 =>
-      de_Bruijn_abstraction ([j + 1 ↦ ↑^1 s]t1)
-    | de_Bruijn_application t1 t2 =>
-      de_Bruijn_application ([j↦s]t1) ([j↦s]t2)
-    end
-
-  where "'[' j '↦' s ']' dBt" := (de_Bruijn_substitution j s dBt).
-
-  Section TAPL_6_2_5.
-    Variables (a b x y : 𝒱) (ϕ_a ϕ_b : nat) (ϕ : {fmap 𝒱 → nat}).
-
-    Hypotheses (HFV_distinct : uniq (a :: b :: x :: y :: nil))
-               (Hϕ_inj : is_injective ϕ)
-               (Hϕ_a : ϕ a ϕ_a)
-               (Hϕ_b : ϕ b ϕ_b).
-
-    Let Hbx : b <> x.
-    Proof.
-      introv Hbx. subst.
-      pose proof HFV_distinct as H'FV_distinct.
-      rewrite /= !mem_seq2 eq_refl andbF // in H'FV_distinct.
-    Qed.
-
-    Let Hay : a <> y.
-    Proof.
-      introv Hay. subst.
-      pose proof HFV_distinct as H'FV_distinct.
-      rewrite /= mem_seq3 eq_refl !orbT // in H'FV_distinct.
-    Qed.
-
-    Let Hby : b <> y.
-    Proof.
-      introv Hby. subst.
-      pose proof HFV_distinct as H'FV_distinct.
-      rewrite /= mem_seq2 eq_refl orbT andbF // in H'FV_distinct.
-    Qed.
-
-    Example TAPL_6_2_5_1 :
-      let t := application (variable b) (abstraction x (abstraction y (variable b))) in
-      let u := variable a in
-      [ϕ_b↦u^ϕ] (t^ϕ) = (t[b⟵u])^ϕ.
-    Proof.
-      intros. subst t u.
-      repeat rewrite /= !setmE !mapmE ?eq_refl. repeat f_equal.
-      { rewrite Hϕ_b !eq_refl /= Hϕ_a //. }
-      apply (introF eqP) in Hbx, Hby.
-      rewrite !addn1 Hbx Hby Hϕ_b /= !setmE !mapmE eq_refl /identity' /= /identity' /=.
-      destruct (a =P Fresh
-                     (codomm_Tm_set
-                        (((mapm variable (identity (b |: fset1 b :\ y :\ x))) [b,
-                                                                               (variable a)]) [x,
-                                                                                               (variable
-                                                                                                  (Fresh
-                                                                                                     (codomm_Tm_set
-                                                                                                        ((mapm variable (identity (b |: fset1 b :\ y :\ x))) [b,
-                                                                                                                                                              (variable a)]))))]))).
-      { pose proof HFresh
-             (codomm_Tm_set
-                        (((mapm variable (identity (b |: fset1 b :\ y :\ x))) [b,
-                                                                               (variable a)]) [x,
-                                                                                               (variable
-                                                                                                  (Fresh
-                                                                                                     (codomm_Tm_set
-                                                                                                        ((mapm variable (identity (b |: fset1 b :\ y :\ x))) [b,
-                                                                                                                                                              (variable a)]))))])) as HFresh.
-        rewrite -e /= in HFresh. rewrite <- (rwP codomm_Tm_setPn) in HFresh.
-        exfalso. apply (HFresh (variable a)).
-        split.
-        { rewrite in_fset1 eq_refl //. }
-        apply (rwP codommP). exists b.
-        rewrite !setmE mapmE eq_refl Hbx //. }
-      rewrite setmE mapmE.
-      destruct
-        (a =P Fresh
-              (codomm_Tm_set ((mapm variable (identity (b |: fset1 b :\ y :\ x))) [b, (variable a)]))).
-      { pose proof HFresh
-             (codomm_Tm_set ((mapm variable (identity (b |: fset1 b :\ y :\ x))) [b, (variable a)])) as HFresh.
-        rewrite -e in HFresh.
-        rewrite <- (rwP codomm_Tm_setPn) in HFresh.
-        exfalso. apply (HFresh (variable a)).
-        split.
-        { rewrite in_fset1 eq_refl //. }
-        apply (rwP codommP). exists b.
-        rewrite setmE mapmE eq_refl //. }
-      rewrite Hϕ_a //.
-    Qed.
-
-    Example TAPL_6_2_5_2 :
-      let t := application (variable b) (abstraction x (abstraction y (variable b))) in
-      let u := application (variable a) (abstraction y (variable a)) in
-      [ϕ_b↦u^ϕ] (t^ϕ) = (t[b⟵u])^ϕ.
-    Proof.
-      intros. subst t u.
-      repeat rewrite /= !setmE !mapmE ?eq_refl. repeat f_equal.
-      { rewrite Hϕ_b !eq_refl /= Hϕ_a //. }
-      apply (introF eqP) in Hbx, Hay, Hby.
-      rewrite !addn1 Hbx Hay Hby Hϕ_a Hϕ_b eq_refl /= !setmE !mapmE Hay !setmE !mapmE /identity' /= /identity' /=.
-      set (m := (mapm variable (identity (b |: fset1 b :\ y :\ x)))[b,application (variable a) (abstraction y (variable a))]).
-      destruct (a =P Fresh (codomm_Tm_set (m[x,variable (Fresh (codomm_Tm_set m))]))).
-      { pose proof HFresh (codomm_Tm_set (m[x,variable (Fresh (codomm_Tm_set m))])) as HFresh.
-        rewrite -e /= in HFresh. rewrite <- (rwP codomm_Tm_setPn) in HFresh.
-        exfalso. apply (HFresh (application (variable a) (abstraction y (variable a)))). split.
-        { rewrite in_fsetU in_fset1 eq_refl //. }
-        apply (rwP codommP). exists b.
-        rewrite !setmE mapmE Hbx eq_refl //. }
-      rewrite !setmE !mapmE.
-      destruct (a =P Fresh (codomm_Tm_set m)).
-      { pose proof HFresh (codomm_Tm_set m) as HFresh.
-        rewrite -e in HFresh.
-        rewrite <- (rwP codomm_Tm_setPn) in HFresh.
-        exfalso. apply (HFresh (application (variable a) (abstraction y (variable a)))). split.
-        { rewrite in_fsetU in_fset1 eq_refl //. }
-        apply (rwP codommP). exists b.
-        rewrite setmE mapmE eq_refl //. }
-      rewrite Hϕ_a //.
-    Qed.
-  End TAPL_6_2_5.
-
-  Lemma TAPL_6_2_6 :
-    forall j n dBt dBu,
-      dBt ∈ Tm^db n ->
-      dBu ∈ Tm^db n ->
-      j <= n ->
-      [j↦dBu]dBt ∈ Tm^db n.
-  Proof.
-    introv HdBtn HdBun Hjn.
-    gen j n dBu. induction dBt; intros; simpl in *.
-    - apply IHdBt; auto.
-      + rewrite addn1 //.
-      + apply TAPL_6_2_3 with (c := 0) (d := 1) in HdBun.
-        rewrite addn1 // in HdBun.
-    - apply (rwP andP) in HdBtn as [HdBt1n HdBt2n].
-      eapply IHdBt1 with (dBu := dBu) in HdBt1n; eauto.
-      eapply IHdBt2 with (dBu := dBu) in HdBt2n; eauto.
-      rewrite /in_mem /= HdBt1n HdBt2n //.
-    - destruct (n =P j); subst; auto.
-  Qed.
-
   Lemma codomm_Tm_set_identity :
     forall X,
       codomm_Tm_set (1__X) = X.
@@ -3310,16 +3118,6 @@ Module AlphaFacts (Import M : Alpha).
       + apply variable_substitution_as_α_equivalent'. auto.
   Qed.
 
-  Lemma de_Bruijn_substitution_identity :
-    forall dBt i,
-      [i↦i]dBt = dBt.
-  Proof.
-    introv.
-    gen i. induction dBt; intros;
-    simpl; f_equal; auto.
-    destruct (n =P i); subst; auto.
-  Qed.
-
   Lemma substitution_noop_if_shadow :
     forall t u x,
       (abstraction x t)[x⟵u] ≡_α abstraction x t.
@@ -3347,194 +3145,6 @@ Module AlphaFacts (Import M : Alpha).
     rewrite Hϕx Hϕy //.
   Qed.
 
-  Lemma noop_de_Bruijn_substitution :
-    forall ϕ i t dBu,
-      t ∈ Tm (domm ϕ) ->
-      i ∉ codomm ϕ ->
-      let dBt := t^ϕ in
-      [i↦dBu]dBt = dBt.
-  Proof.
-    intros ? ? ? ? Hϕt Hnℛϕi ?.
-    subst dBt.
-    apply (rwP fsubsetP) in Hϕt.
-    rewrite <- (rwP (@codommPn _ _ ϕ i)) in Hnℛϕi.
-    gen ϕ i dBu. induction t; intros;
-    simpl; f_equal.
-    - apply IHt.
-      { intros k Hϕ'k. rewrite domm_set domm_mapi in_fsetU in_fset1.
-        destruct (k =P s); subst; auto.
-        apply Hϕt.
-        apply (introF eqP) in n.
-        rewrite in_fsetD in_fset1 n Hϕ'k //. }
-      intros k'.
-      rewrite setmE mapmE addn1.
-      destruct (k' =P s); subst; auto.
-      destruct (getm ϕ k') eqn:Hϕk'; auto.
-      pose proof Hnℛϕi k' as Hnϕk'. rewrite Hϕk' // in Hnϕk'.
-    - apply IHt1; auto. intros k Hkt1.
-      apply Hϕt. rewrite in_fsetU Hkt1 //.
-    - apply IHt2; auto. intros k Hkt2.
-      apply Hϕt. rewrite in_fsetU Hkt2 orbT //.
-    - destruct (getm ϕ s) eqn:Hϕs.
-      + pose proof Hnℛϕi s as Hnϕs. rewrite Hϕs in Hnϕs.
-        apply negbTE in Hnϕs.
-        cbn in *. rewrite Hnϕs //.
-      + destruct i; auto.
-        apply (rwP dommPn) in Hϕs.
-        pose proof Hϕt s ltac:(rewrite /= in_fset1 eq_refl //) as H'ϕs.
-        rewrite H'ϕs // in Hϕs.
-  Qed.
-
-  (* See https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.8.7101&rep=rep1&type=pdf. *)
-  Definition decr (s : {fset nat}) : {fset nat} :=
-    predn @: (s :\ 0).
-
-  (* TODO Overload [FV] notation to include this. *)
-  Fixpoint de_Bruijn_FV dBt : {fset nat} :=
-    match dBt with
-    | de_Bruijn_abstraction dBt =>
-      decr (de_Bruijn_FV dBt)
-    | de_Bruijn_application dBt1 dBt2 =>
-      de_Bruijn_FV dBt1 ∪ de_Bruijn_FV dBt2
-    | de_Bruijn_variable n =>
-      fset1 n
-    end.
-
-  #[local] Notation FV' := de_Bruijn_FV.
-
-  Lemma FV'_as_FV :
-    forall ϕ t,
-      t ∈ Tm (domm ϕ) ->
-      FV' (t^ϕ) = pimfset (getm ϕ) (FV t).
-  Proof.
-    introv Hϕt.
-    apply (rwP fsubsetP) in Hϕt.
-    apply eq_fset. intros x.
-    gen x ϕ. induction t; intros; simpl in *.
-    - assert (t ∈ Tm (domm (ϕ^+s))) as Hϕ't.
-      { rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros k Hkt.
-        rewrite domm_set domm_mapi in_fsetU in_fset1.
-        destruct (k =P s); subst; auto.
-        apply Hϕt.
-        apply (introF eqP) in n.
-        rewrite in_fsetD in_fset1 n Hkt //. }
-      apply (rwP fsubsetP) in Hϕ't.
-      pose proof (fun i => @IHt i _ Hϕ't) as IH't.
-      apply Bool.eq_iff_eq_true. split; intro H.
-      + apply (rwP pimfsetP).
-        apply (rwP imfsetP) in H as [y Ht'y Hxy].
-        rewrite !in_fsetD !in_fset1 in Ht'y.
-        apply (rwP andP) in Ht'y as [HynZ Hyt'].
-        destruct y.
-        { inverts HynZ. }
-        clear HynZ.
-        simpl in Hxy. subst.
-        pose proof IH't (y.+1) as IH'ty. rewrite Hyt' in IH'ty.
-        symmetry in IH'ty. apply (rwP pimfsetP) in IH'ty as [x Hxt Hϕ'x].
-        rewrite setmE mapmE in Hϕ'x.
-        destruct (x =P s); subst.
-        { inverts Hϕ'x. }
-        apply (introF eqP) in n.
-        assert (x ∈ domm ϕ) as Hϕx.
-        { apply Hϕt. rewrite in_fsetD in_fset1 n Hxt //. }
-        apply (rwP dommP) in Hϕx as [v Hϕx].
-        rewrite Hϕx in Hϕ'x. inverts Hϕ'x.
-        exists x; auto.
-        rewrite in_fsetD in_fset1 n Hxt //.
-      + apply (rwP pimfsetP) in H as [y Hytns Hϕy].
-        rewrite in_fsetD in_fset1 in Hytns. apply (rwP andP) in Hytns as [Hyns Hyt].
-        apply (rwP imfsetP).
-        exists (x.+1); auto.
-        rewrite !in_fsetD !in_fset1 (IH't (x.+1)) /=.
-        apply (rwP pimfsetP). exists y; auto.
-        apply negbTE in Hyns.
-        rewrite setmE mapmE Hϕy Hyns //.
-    - rewrite in_fsetU.
-      apply Bool.eq_iff_eq_true. split; introv H.
-      + apply (rwP pimfsetP).
-        apply (rwP orP) in H as [Hxt1|Hxt2].
-        * rewrite IHt1 in Hxt1.
-          -- apply (rwP pimfsetP) in Hxt1 as [k Hkt1 Hϕk].
-             exists k; auto. rewrite in_fsetU Hkt1 //.
-          -- intros k Hkt. apply Hϕt. rewrite in_fsetU Hkt //.
-        * rewrite IHt2 in Hxt2.
-          -- apply (rwP pimfsetP) in Hxt2 as [k Hkt2 Hϕk].
-             exists k; auto. rewrite in_fsetU Hkt2 orbT //.
-          -- intros k Hkt. apply Hϕt. rewrite in_fsetU Hkt orbT //.
-      + apply (rwP orP).
-        apply (rwP pimfsetP) in H as [k Hkt1t2 Hϕk].
-        rewrite in_fsetU in Hkt1t2. apply (rwP orP) in Hkt1t2 as [Hkt1|Hkt2].
-        * left. rewrite IHt1.
-          -- apply (rwP pimfsetP). eauto.
-          -- intros k' Hk't1. apply Hϕt. rewrite in_fsetU Hk't1 //.
-        * right. rewrite IHt2.
-          -- apply (rwP pimfsetP). eauto.
-          -- intros k' Hk't2. apply Hϕt. rewrite in_fsetU Hk't2 orbT //.
-    - rewrite in_fset1.
-      apply Bool.eq_iff_eq_true. split; intros H.
-      + apply (rwP eqP) in H. subst.
-        assert (s ∈ domm ϕ) as Hϕs. { apply Hϕt. rewrite in_fset1 eq_refl //. }
-        apply (rwP dommP) in Hϕs as [v Hϕs].
-        apply (rwP (@pimfsetP _ _ _ (fset1 s) _)). exists s.
-        * rewrite in_fset1 eq_refl //.
-        * rewrite Hϕs //.
-      + apply (rwP (@pimfsetP _ _ _ (fset1 s) _)) in H as [k Hks Hϕk].
-        rewrite in_fset1 in Hks. apply (rwP eqP) in Hks. subst.
-        rewrite Hϕk eq_refl //.
-  Qed.
-
-  Lemma noop_de_Bruijn_substitution' :
-    forall ϕ i x t dBu,
-      is_injective ϕ ->
-      t ∈ Tm (domm ϕ) ->
-      getm ϕ x = Some i ->
-      x ∉ FV t ->
-      let dBt := t^ϕ in
-      [i↦dBu]dBt = dBt.
-  Proof.
-    intros ? ? ? ? ? Hϕinj Htϕ Hϕx Hnxt ?.
-    subst dBt.
-    apply (rwP fsubsetP) in Htϕ.
-    gen ϕ x i dBu. induction t; intros;
-    simpl in *.
-    - f_equal.
-      rewrite in_fsetD in_fset1 negb_and negbK in Hnxt.
-      destruct (x =P s); subst.
-      + pose proof old_index_after_update_ϕ _ Hϕinj Hϕx as Hnϕ'y.
-        apply noop_de_Bruijn_substitution.
-        * rewrite /Tm /in_mem /=. apply (rwP fsubsetP). intros x Hxt.
-          rewrite domm_set domm_mapi in_fsetU in_fset1.
-          destruct (x =P s); subst; auto.
-          apply (introF eqP) in n.
-          apply Htϕ. rewrite in_fsetD in_fset1 n Hxt //.
-        * rewrite <- (rwP (@codommPn _ _ (ϕ^+s) _)). intros k.
-          apply negbT, Bool.not_true_iff_false. intros Hnϕ'k.
-          apply (rwP eqP) in Hnϕ'k.
-          apply Hnϕ'y with k. rewrite -addn1 //.
-      + pose proof old_index_after_update_ϕ _ Hϕinj Hϕx as Hnϕ'y.
-        erewrite IHt; eauto.
-        * apply injective_update_ϕ. auto.
-        * intros k Hkt.
-          rewrite domm_set domm_mapi in_fsetU in_fset1.
-          destruct (k =P s); subst; auto.
-          apply (introF eqP) in n0.
-          apply Htϕ. rewrite in_fsetD in_fset1 n0 Hkt //.
-        * apply (introF eqP) in n.
-          rewrite setmE mapmE n Hϕx /= addn1 //.
-    - rewrite in_fsetU negb_or in Hnxt. apply (rwP andP) in Hnxt as [Hnxt1 Hnxt2].
-      erewrite IHt1; cycle 1; eauto.
-      { intros k Hkt1. apply Htϕ. rewrite in_fsetU Hkt1 //. }
-      erewrite IHt2; cycle 1; eauto.
-      intros k Hkt2. apply Htϕ. rewrite in_fsetU Hkt2 orbT //.
-    - assert (s ∈ domm ϕ) as Hϕs. { apply Htϕ. rewrite in_fset1 eq_refl //. }
-      apply (rwP dommP) in Hϕs as [v Hϕs]. rewrite Hϕs /=.
-      destruct (v =P i); subst; auto.
-      rewrite -Hϕs in Hϕx.
-      apply (rwP injectivemP) in Hϕinj. apply Hϕinj in Hϕx.
-      + subst. rewrite in_fset1 eq_refl // in Hnxt.
-      + apply (rwP dommP). rewrite Hϕx. eauto.
-  Qed.
-
   Lemma update_substitution_reorder' :
     forall f x x' t t',
       x <> x' ->
@@ -3546,18 +3156,6 @@ Module AlphaFacts (Import M : Alpha).
     destruct (k =P x); subst; auto.
     apply (introF eqP) in Hxnx'. rewrite Hxnx' //.
   Qed.
-
-  (** Page 8: "I leave it to the reader to show that -^ϕ preserves substitution, i.e. it maps substitutions to named terms as given here to substitution on de Bruijn terms."
-
-      This is the only main result not yet formalized.
-   *)
-  Lemma TAPL_6_2_8 :
-    forall ϕ t u x,
-      (FV t ∪ FV u ∪ {x}) ⊆ domm ϕ ->
-      is_injective ϕ ->
-      (t[x⟵u])^ϕ = [odflt 0 (getm ϕ x)↦u^ϕ](t^ϕ).
-  Proof.
-  Admitted.
 
   Fixpoint term_depth t : nat :=
     S match t with
@@ -4622,5 +4220,216 @@ Module AlphaFacts (Import M : Alpha).
     transitivity (⦇f⦈ t).
     { apply lift_substitution'_independent_of_Fresh'; auto. }
     symmetry. apply lift_substitution'_independent_of_Fresh'; auto.
+  Qed.
+
+  Inductive Lift (A : Type) : Type :=
+  | new
+  | old (x : A).
+
+  Arguments new {_}.
+  Arguments old {_} _.
+
+  Definition Lift_map (A B : Type) (f : A -> B) (x : Lift A) : Lift B :=
+    match x with
+    | new => new
+    | old x => old (f x)
+    end.
+
+  Inductive Lam (A : Type) : Type :=
+  | var (x : A) : Lam A
+  | app (t : Lam A) (u : Lam A) : Lam A
+  | abs (t : Lam (Lift A)) : Lam A.
+
+  Fixpoint Lam_map (X Y : Type) (f : X -> Y) (t : Lam X) : Lam Y :=
+    match t with
+    | var x => var (f x)
+    | app t u => app (Lam_map f t) (Lam_map f u)
+    | abs t => abs (Lam_map (Lift_map f) t)
+    end.
+
+  Definition lift (X Y : Type) (f : X -> Lam Y) (x : Lift X) : Lam (Lift Y) :=
+    match x with
+    | new => var new
+    | old x => Lam_map old (f x)
+    end.
+
+  Fixpoint bind (X Y : Type) (f : X -> Lam Y) (t : Lam X) : Lam Y :=
+    match t with
+    | var x => f x
+    | app s t => app (bind f s) (bind f t)
+    | abs t => abs (bind (lift f) t)
+    end.
+
+  Lemma Lift_map_id :
+    forall A : Type,
+      @Lift_map A A id = id.
+  Proof.
+    intros.
+    apply functional_extensionality. intros.
+    destruct x; auto.
+  Qed.
+
+  Lemma Lift_map_linear :
+    forall (A B C : Type) (f : A -> B) (g : B -> C),
+      Lift_map (g ∘ f) = Lift_map g ∘ Lift_map f.
+  Proof.
+    intros.
+    apply functional_extensionality. destruct x; auto.
+  Qed.
+
+  Lemma Lam_map_id :
+    forall (A : Type) (t : Lam A),
+      Lam_map id t = t.
+  Proof.
+    intros.
+    induction t; simpl; f_equal; auto.
+    rewrite Lift_map_id //.
+  Qed.
+
+  Lemma Lam_map_linear :
+    forall (A B C : Type) (f : A -> B) (g : B -> C),
+      Lam_map (g ∘ f) = Lam_map g ∘ Lam_map f.
+  Proof.
+    intros.
+    apply functional_extensionality. intros.
+    gen B C f g. induction x; intros; simpl; f_equal.
+    - rewrite IHx1 //.
+    - rewrite IHx2 //.
+    - rewrite Lift_map_linear IHx //.
+  Qed.
+
+  Lemma bind_var :
+    forall (X : Type) (t : Lam X),
+      bind (@var X) t = t.
+  Proof.
+    intros.
+    induction t; simpl; auto.
+    - rewrite IHt1 IHt2 //.
+    - rewrite <- IHt at 2. repeat f_equal.
+      apply functional_extensionality. destruct x; auto.
+  Qed.
+
+  Lemma bind_comp1 :
+    forall (A B C : Type) (f : B -> C) (g : A -> Lam B),
+      Lam_map f ∘ bind g = bind (Lam_map f ∘ g).
+  Proof.
+    intros.
+    apply functional_extensionality. intros. simpl.
+    gen B C f g. induction x; intros; simpl; f_equal; auto.
+    rewrite IHx. f_equal.
+    apply functional_extensionality. intros y.
+    destruct y as [|y]; simpl; auto.
+    change ((Lam_map (Lift_map f) ∘ Lam_map old) (g y) = Lam_map old (Lam_map f (g y))).
+    rewrite -Lam_map_linear.
+    change (Lam_map (Lift_map f ∘ old) (g y) = (Lam_map old ∘ Lam_map f) (g y)).
+    rewrite -Lam_map_linear //.
+  Qed.
+
+  Lemma bind_comp2 :
+    forall (A B C : Type) (f : B -> Lam C) (g : A -> B),
+      bind f ∘ Lam_map g = bind (f ∘ g).
+  Proof.
+    intros.
+    apply functional_extensionality. intros. simpl.
+    gen B C f g. induction x; intros; simpl; f_equal; auto.
+    rewrite IHx. f_equal.
+    apply functional_extensionality. intros y.
+    destruct y as [|y]; simpl; auto.
+  Qed.
+
+  Lemma bind_comp3 :
+    forall (A B : Type) (g : A -> Lam B),
+      bind (lift g) ∘ Lam_map old = Lam_map old ∘ bind g.
+  Proof.
+    intros. rewrite bind_comp1 bind_comp2 //.
+  Qed.
+
+  Lemma bind_comp :
+    forall (A B C : Type) (f : A -> Lam B) (g : B -> Lam C),
+      bind g ∘ bind f = bind (bind g ∘ f).
+  Proof.
+    intros.
+    apply functional_extensionality. intros. simpl.
+    gen B C f g. induction x; intros; simpl; f_equal; auto.
+    rewrite IHx. f_equal.
+    apply functional_extensionality. intros y.
+    destruct y as [|y]; simpl; auto.
+    change (bind (lift g) (lift f (old y)) = (Lam_map old ∘ bind g) (f y)).
+    rewrite -bind_comp3 //.
+  Qed.
+
+  Definition subst (A : Type) (t : Lam (Lift A)) (s : Lam A) : Lam A :=
+    bind
+      (fun t : Lift A =>
+         match t with
+         | new => s
+         | old x => var x
+         end)
+      t.
+
+  Definition weak (A : Type) : Lam A -> Lam (Lift A) :=
+    bind (@var (Lift A) ∘ old).
+
+  Lemma subst_weak :
+    forall (A : Type) (t u : Lam A),
+      subst (weak t) u = t.
+  Proof.
+    rewrite /subst /weak /=. intros.
+    change ((bind (fun t : Lift A => match t with
+                                  | new => u
+                                  | old x => var x
+                                  end) ∘ bind (@var (Lift A) ∘ old)) t = t).
+    rewrite bind_comp /= bind_var //.
+  Qed.
+
+  (* See https://hackage.haskell.org/package/bound-2.0.5/docs/src/Bound.Term.html#substitute. *)
+  Definition subst' (A : eqType) (x : A) (s : Lam A) : Lam A -> Lam A :=
+    bind (fun y : A => if x == y then s else var y).
+
+  Fixpoint dbt (t : de_Bruijn_term) : Lam nat :=
+    match t with
+    | de_Bruijn_abstraction t =>
+        abs (weak (dbt t))
+    | de_Bruijn_application t1 t2 =>
+        app (dbt t1) (dbt t2)
+    | de_Bruijn_variable x =>
+        var x
+    end.
+
+  (** Page 8: "I leave it to the reader to show that -^ϕ preserves substitution, i.e. it maps substitutions to named terms as given here to substitution on de Bruijn terms."
+
+      This is the only main result not yet formalized.
+   *)
+  Lemma TAPL_6_2_8 :
+    forall ϕ t u x,
+      (FV t ∪ FV u ∪ {x}) ⊆ domm ϕ ->
+      is_injective ϕ ->
+      dbt ((t[x⟵u])^ϕ) = subst' _ (odflt 0 (getm ϕ x)) (dbt (u^ϕ)) (dbt (t^ϕ)).
+  Proof.
+    unfold subst'.
+    intros.
+    gen ϕ u. induction t using term_depth_ind; destruct t; intros; simpl in *; f_equal.
+    - unfold weak.
+      change
+        (bind (fun a : nat => var (old a))
+           (dbt
+              (`⦇((1__(FV t :\ s))[x,u])[s,(variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u]))))]⦈ Fresh t^
+                 ϕ ^+ Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))) =
+           (bind (lift (fun y : nat => if odflt 0 (getm ϕ x) == y then dbt (u^ϕ) else var y)) ∘
+              bind (fun a : nat => var (old a))) (dbt (t^ϕ ^+ s))).
+      rewrite bind_comp /=.
+
+    induction t; intros; simpl; unfold weak; simpl; f_equal; auto.
+    - change
+        (bind (fun a : nat => var (old a))
+    (dbt
+       (`⦇((1__(FV t :\ s))[x,u])[s,(variable (Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u]))))]⦈ Fresh t^
+        ϕ ^+ Fresh (codomm_Tm_set ((1__(FV t :\ s))[x,u])))) =
+  (bind (lift (fun y : nat => if odflt 0 (getm ϕ x) == y then dbt (u^ϕ) else var y)) ∘
+    bind (fun a : nat => var (old a))) (dbt (t^ϕ ^+ s))).
+      rewrite bind_comp.
+      simpl.
+      destruct (getm ϕ x) eqn:?; simpl; auto.
+      +
   Qed.
 End AlphaFacts.
