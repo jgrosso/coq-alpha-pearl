@@ -9,7 +9,6 @@
   - Set up extraction. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Program.Tactics Setoid ssreflect.
-From Equations Require Import Equations.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
 From deriving Require Import deriving.
 From extructures Require Import fmap fset ord.

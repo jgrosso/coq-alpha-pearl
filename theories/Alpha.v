@@ -8,8 +8,7 @@
   - Improve evaluation speed.
   - Set up extraction. *)
 
-From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Program.Tactics Setoid ssreflect.
-From Equations Require Import Equations.
+From Coq Require Import Classes.RelationClasses Lists.List Logic.FunctionalExtensionality Program.Equality Program.Tactics Setoid ssreflect.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
 From deriving Require Import deriving.
 From extructures Require Import fmap fset ord.
@@ -4264,17 +4263,14 @@ Module AlphaFacts (Import M : Alpha).
     forall A : Type,
       @Lift_map A A id = id.
   Proof.
-    intros.
-    apply functional_extensionality. intros.
-    destruct x; auto.
+    intros. extensionality x. destruct x; auto.
   Qed.
 
   Lemma Lift_map_linear :
     forall (A B C : Type) (f : A -> B) (g : B -> C),
       Lift_map (g ∘ f) = Lift_map g ∘ Lift_map f.
   Proof.
-    intros.
-    apply functional_extensionality. destruct x; auto.
+    intros. extensionality x. destruct x; auto.
   Qed.
 
   Lemma Lam_map_id :
@@ -4290,8 +4286,7 @@ Module AlphaFacts (Import M : Alpha).
     forall (A B C : Type) (f : A -> B) (g : B -> C),
       Lam_map (g ∘ f) = Lam_map g ∘ Lam_map f.
   Proof.
-    intros.
-    apply functional_extensionality. intros.
+    intros. extensionality x.
     gen B C f g. induction x; intros; simpl; f_equal.
     - rewrite IHx1 //.
     - rewrite IHx2 //.
@@ -4306,7 +4301,7 @@ Module AlphaFacts (Import M : Alpha).
     induction t; simpl; auto.
     - rewrite IHt1 IHt2 //.
     - rewrite <- IHt at 2. repeat f_equal.
-      apply functional_extensionality. destruct x; auto.
+      extensionality x. destruct x; auto.
   Qed.
 
   Lemma bind_comp1 :
@@ -4314,11 +4309,10 @@ Module AlphaFacts (Import M : Alpha).
       Lam_map f ∘ bind g = bind (Lam_map f ∘ g).
   Proof.
     intros.
-    apply functional_extensionality. intros. simpl.
+    extensionality x. simpl.
     gen B C f g. induction x; intros; simpl; f_equal; auto.
     rewrite IHx. f_equal.
-    apply functional_extensionality. intros y.
-    destruct y as [|y]; simpl; auto.
+    extensionality y. destruct y as [|y]; simpl; auto.
     change ((Lam_map (Lift_map f) ∘ Lam_map old) (g y) = Lam_map old (Lam_map f (g y))).
     rewrite -Lam_map_linear.
     change (Lam_map (Lift_map f ∘ old) (g y) = (Lam_map old ∘ Lam_map f) (g y)).
@@ -4330,11 +4324,10 @@ Module AlphaFacts (Import M : Alpha).
       bind f ∘ Lam_map g = bind (f ∘ g).
   Proof.
     intros.
-    apply functional_extensionality. intros. simpl.
+    extensionality x. simpl.
     gen B C f g. induction x; intros; simpl; f_equal; auto.
     rewrite IHx. f_equal.
-    apply functional_extensionality. intros y.
-    destruct y as [|y]; simpl; auto.
+    extensionality y. destruct y as [|y]; simpl; auto.
   Qed.
 
   Lemma bind_comp3 :
@@ -4349,11 +4342,10 @@ Module AlphaFacts (Import M : Alpha).
       bind g ∘ bind f = bind (bind g ∘ f).
   Proof.
     intros.
-    apply functional_extensionality. intros. simpl.
+    extensionality x. simpl.
     gen B C f g. induction x; intros; simpl; f_equal; auto.
     rewrite IHx. f_equal.
-    apply functional_extensionality. intros y.
-    destruct y as [|y]; simpl; auto.
+    extensionality y. destruct y as [|y]; simpl; auto.
     change (bind (lift g) (lift f (old y)) = (Lam_map old ∘ bind g) (f y)).
     rewrite -bind_comp3 //.
   Qed.
@@ -4400,6 +4392,7 @@ Module AlphaFacts (Import M : Alpha).
 
       This is the only main result not yet formalized.
    *)
+  (*
   Lemma TAPL_6_2_8 :
     forall ϕ t u x,
       (FV t ∪ FV u ∪ {x}) ⊆ domm ϕ ->
@@ -4432,4 +4425,5 @@ Module AlphaFacts (Import M : Alpha).
       destruct (getm ϕ x) eqn:?; simpl; auto.
       +
   Qed.
+  *)
 End AlphaFacts.
