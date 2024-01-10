@@ -14,3 +14,8 @@ theories/AlphaImpl.v
 theories/Examples.v
 
 -arg "-w -notation-overridden,-parsing"
+
+# See https://github.com/math-comp/hierarchy-builder/issues/402
+-arg "-w -projection-no-head-constant"
+# From math-comp's _CoqProject (https://github.com/math-comp/math-comp/blob/master/_CoqProject)
+-arg "-w -redundant-canonical-projection"

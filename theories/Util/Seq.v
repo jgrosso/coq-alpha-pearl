@@ -30,18 +30,18 @@ Qed.
 Lemma maxE r : maximum r = \max_(i <- r) i. Proof. exact: foldrE. Qed.
 
 Lemma bigmax_subset :
-  forall sub super : seq nat,
-    {subset sub <= super} ->
-    \max_(x <- sub) x <= \max_(x <- super) x.
+  forall subset superset : seq nat,
+    {subset subset <= superset} ->
+    \max_(x <- subset) x <= \max_(x <- superset) x.
 Proof.
   intros.
-  gen super. induction sub; intros; simpl in *.
+  gen superset. induction subset; intros; simpl in *.
   - rewrite big_nil //.
   - rewrite big_cons.
-    assert (a ∈ a :: sub). { rewrite in_cons eq_refl //. }
+    assert (a ∈ a :: subset). { rewrite in_cons eq_refl //. }
     apply H in H0.
     rewrite geq_max -{1}maxE maximum_correct //.
-    apply IHsub. intros_all.
+    apply IHsubset. intros_all.
     apply H. rewrite in_cons.
     destruct (x =P a); subst; auto.
 Qed.

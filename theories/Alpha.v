@@ -9,6 +9,7 @@
   - Set up extraction. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Logic.FunctionalExtensionality Program.Equality Program.Tactics Setoid ssreflect.
+From HB Require Import structures.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
 From deriving Require Import deriving.
 From extructures Require Import fmap fset ord.
@@ -19,7 +20,7 @@ Set Implicit Arguments.
 Set Bullet Behavior "Strict Subproofs".
 Unset Printing Implicit Defensive.
 
-Obligation Tactic := program_simpl.
+#[global] Obligation Tactic := program_simpl.
 
 #[local] Open Scope fset_scope.
 
@@ -60,13 +61,15 @@ Module AlphaFacts (Import M : Alpha).
       (at level 52, format "x  '∪'  '{' y '}'")
     : fset_scope.
 
-  Canonical term_indType := IndType term [indDef for term_rect].
-
-  Canonical term_eqType := EqType term [derive eqMixin for term].
-
-  Canonical term_choiceType := ChoiceType term [derive choiceMixin for term].
-
-  Canonical term_ordType := OrdType term [derive ordMixin for term].
+  (** We need to define a total order on terms in order to use them as elements of finite sets. *)
+  Definition term_indDef := [indDef for term_rect].
+  Canonical term_indType := IndType term term_indDef.
+  Definition term_hasDecEq := [derive hasDecEq for term].
+  HB.instance Definition _ := term_hasDecEq.
+  Definition term_hasChoice := [derive hasChoice for term].
+  HB.instance Definition _ := term_hasChoice.
+  Definition term_hasOrd := [derive hasOrd for term].
+  HB.instance Definition _ := term_hasOrd.
 
   Implicit Types (W X Y Z : {fset 𝒱}) (t u : term) (v w x y z : 𝒱) (R S : {fmap 𝒱 → 𝒱}).
 
@@ -4220,173 +4223,6 @@ Module AlphaFacts (Import M : Alpha).
     { apply lift_substitution'_independent_of_Fresh'; auto. }
     symmetry. apply lift_substitution'_independent_of_Fresh'; auto.
   Qed.
-
-  Inductive Lift (A : Type) : Type :=
-  | new
-  | old (x : A).
-
-  Arguments new {_}.
-  Arguments old {_} _.
-
-  Definition Lift_map (A B : Type) (f : A -> B) (x : Lift A) : Lift B :=
-    match x with
-    | new => new
-    | old x => old (f x)
-    end.
-
-  Inductive Lam (A : Type) : Type :=
-  | var (x : A) : Lam A
-  | app (t : Lam A) (u : Lam A) : Lam A
-  | abs (t : Lam (Lift A)) : Lam A.
-
-  Fixpoint Lam_map (X Y : Type) (f : X -> Y) (t : Lam X) : Lam Y :=
-    match t with
-    | var x => var (f x)
-    | app t u => app (Lam_map f t) (Lam_map f u)
-    | abs t => abs (Lam_map (Lift_map f) t)
-    end.
-
-  Definition lift (X Y : Type) (f : X -> Lam Y) (x : Lift X) : Lam (Lift Y) :=
-    match x with
-    | new => var new
-    | old x => Lam_map old (f x)
-    end.
-
-  Fixpoint bind (X Y : Type) (f : X -> Lam Y) (t : Lam X) : Lam Y :=
-    match t with
-    | var x => f x
-    | app s t => app (bind f s) (bind f t)
-    | abs t => abs (bind (lift f) t)
-    end.
-
-  Lemma Lift_map_id :
-    forall A : Type,
-      @Lift_map A A id = id.
-  Proof.
-    intros. extensionality x. destruct x; auto.
-  Qed.
-
-  Lemma Lift_map_linear :
-    forall (A B C : Type) (f : A -> B) (g : B -> C),
-      Lift_map (g ∘ f) = Lift_map g ∘ Lift_map f.
-  Proof.
-    intros. extensionality x. destruct x; auto.
-  Qed.
-
-  Lemma Lam_map_id :
-    forall (A : Type) (t : Lam A),
-      Lam_map id t = t.
-  Proof.
-    intros.
-    induction t; simpl; f_equal; auto.
-    rewrite Lift_map_id //.
-  Qed.
-
-  Lemma Lam_map_linear :
-    forall (A B C : Type) (f : A -> B) (g : B -> C),
-      Lam_map (g ∘ f) = Lam_map g ∘ Lam_map f.
-  Proof.
-    intros. extensionality x.
-    gen B C f g. induction x; intros; simpl; f_equal.
-    - rewrite IHx1 //.
-    - rewrite IHx2 //.
-    - rewrite Lift_map_linear IHx //.
-  Qed.
-
-  Lemma bind_var :
-    forall (X : Type) (t : Lam X),
-      bind (@var X) t = t.
-  Proof.
-    intros.
-    induction t; simpl; auto.
-    - rewrite IHt1 IHt2 //.
-    - rewrite <- IHt at 2. repeat f_equal.
-      extensionality x. destruct x; auto.
-  Qed.
-
-  Lemma bind_comp1 :
-    forall (A B C : Type) (f : B -> C) (g : A -> Lam B),
-      Lam_map f ∘ bind g = bind (Lam_map f ∘ g).
-  Proof.
-    intros.
-    extensionality x. simpl.
-    gen B C f g. induction x; intros; simpl; f_equal; auto.
-    rewrite IHx. f_equal.
-    extensionality y. destruct y as [|y]; simpl; auto.
-    change ((Lam_map (Lift_map f) ∘ Lam_map old) (g y) = Lam_map old (Lam_map f (g y))).
-    rewrite -Lam_map_linear.
-    change (Lam_map (Lift_map f ∘ old) (g y) = (Lam_map old ∘ Lam_map f) (g y)).
-    rewrite -Lam_map_linear //.
-  Qed.
-
-  Lemma bind_comp2 :
-    forall (A B C : Type) (f : B -> Lam C) (g : A -> B),
-      bind f ∘ Lam_map g = bind (f ∘ g).
-  Proof.
-    intros.
-    extensionality x. simpl.
-    gen B C f g. induction x; intros; simpl; f_equal; auto.
-    rewrite IHx. f_equal.
-    extensionality y. destruct y as [|y]; simpl; auto.
-  Qed.
-
-  Lemma bind_comp3 :
-    forall (A B : Type) (g : A -> Lam B),
-      bind (lift g) ∘ Lam_map old = Lam_map old ∘ bind g.
-  Proof.
-    intros. rewrite bind_comp1 bind_comp2 //.
-  Qed.
-
-  Lemma bind_comp :
-    forall (A B C : Type) (f : A -> Lam B) (g : B -> Lam C),
-      bind g ∘ bind f = bind (bind g ∘ f).
-  Proof.
-    intros.
-    extensionality x. simpl.
-    gen B C f g. induction x; intros; simpl; f_equal; auto.
-    rewrite IHx. f_equal.
-    extensionality y. destruct y as [|y]; simpl; auto.
-    change (bind (lift g) (lift f (old y)) = (Lam_map old ∘ bind g) (f y)).
-    rewrite -bind_comp3 //.
-  Qed.
-
-  Definition subst (A : Type) (t : Lam (Lift A)) (s : Lam A) : Lam A :=
-    bind
-      (fun t : Lift A =>
-         match t with
-         | new => s
-         | old x => var x
-         end)
-      t.
-
-  Definition weak (A : Type) : Lam A -> Lam (Lift A) :=
-    bind (@var (Lift A) ∘ old).
-
-  Lemma subst_weak :
-    forall (A : Type) (t u : Lam A),
-      subst (weak t) u = t.
-  Proof.
-    rewrite /subst /weak /=. intros.
-    change ((bind (fun t : Lift A => match t with
-                                  | new => u
-                                  | old x => var x
-                                  end) ∘ bind (@var (Lift A) ∘ old)) t = t).
-    rewrite bind_comp /= bind_var //.
-  Qed.
-
-  (* See https://hackage.haskell.org/package/bound-2.0.5/docs/src/Bound.Term.html#substitute. *)
-  Definition subst' (A : eqType) (x : A) (s : Lam A) : Lam A -> Lam A :=
-    bind (fun y : A => if x == y then s else var y).
-
-  Fixpoint dbt (t : de_Bruijn_term) : Lam nat :=
-    match t with
-    | de_Bruijn_abstraction t =>
-        abs (weak (dbt t))
-    | de_Bruijn_application t1 t2 =>
-        app (dbt t1) (dbt t2)
-    | de_Bruijn_variable x =>
-        var x
-    end.
 
   (** Page 8: "I leave it to the reader to show that -^ϕ preserves substitution, i.e. it maps substitutions to named terms as given here to substitution on de Bruijn terms."
 

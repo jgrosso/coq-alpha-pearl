@@ -9,9 +9,11 @@
   - Set up extraction. *)
 
 From Coq Require Import Classes.RelationClasses Lists.List Program.Equality Program.Tactics Setoid ssreflect.
+From HB Require Import structures.
 From mathcomp Require Import bigop choice eqtype seq ssrbool ssrfun ssrnat.
 From deriving Require Import deriving.
 From extructures Require Import fmap fset ord.
+From Equations Require Import Equations Signature.
 From AlphaPearl Require Import Alpha Util.
 
 Set Asymmetric Patterns.
@@ -31,13 +33,15 @@ Module AlphaPaperFacts (Import M : Alpha).
       (at level 52, format "X  '∪'  '{' x '}'")
     : fset_scope.
 
-  Canonical term_indType := IndType term [indDef for term_rect].
-
-  Canonical term_eqType := EqType term [derive eqMixin for term].
-
-  Canonical term_choiceType := ChoiceType term [derive choiceMixin for term].
-
-  Canonical term_ordType := OrdType term [derive ordMixin for term].
+  (** We need to define a total order on terms in order to use them as elements of finite sets. *)
+  Definition term_indDef := [indDef for term_rect].
+  Canonical term_indType := IndType term term_indDef.
+  Definition term_hasDecEq := [derive hasDecEq for term].
+  HB.instance Definition _ := term_hasDecEq.
+  Definition term_hasChoice := [derive hasChoice for term].
+  HB.instance Definition _ := term_hasChoice.
+  Definition term_hasOrd := [derive hasOrd for term].
+  HB.instance Definition _ := term_hasOrd.
 
   #[local] Open Scope term_scope.
 

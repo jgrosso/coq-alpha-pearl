@@ -41,7 +41,7 @@ Module AlphaString <: Alpha.
     introv Hx. subst. rewrite ltnn // in Hx_In_s.
   Qed.
 
-  Definition 𝒱 := string_ordType.
+  Definition 𝒱 : ordType := string.
 
   Definition Fresh (s : {fset 𝒱}) : 𝒱 := Fresh_seq s.
 
@@ -95,7 +95,7 @@ Module AlphaNat <: Alpha.
     - apply IHs in Hx_In_s. rewrite -[(a + ∑_(j ∈ s) j).+1]addn1 -addnA addnC ltn_addr // addn1 //.
   Qed.
 
-  Definition 𝒱 := nat_ordType.
+  Definition 𝒱 : ordType := nat.
 
   Definition Fresh (s : {fset 𝒱}) : 𝒱 := Fresh_seq s.
 
