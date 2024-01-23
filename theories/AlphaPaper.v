@@ -1761,6 +1761,7 @@ Module AlphaPaperFacts (Import M : Alpha).
       - assert (x0 ∉ domm ϕ) by (rewrite H; by_cases). by_cases.
     Qed.
 
+    (** Page 8: "I leave it to the reader to show that -^ϕ preserves substitution...." *)
     Lemma Lift_preserves_subst :
       forall t f ϕ ψ (g : Subst),
         let X := domm f in
