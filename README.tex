@@ -46,7 +46,7 @@ project and its documentation via \verb|make html|. (At the moment, \verb|theori
 
 The project is organized on disk as follows:
 
-\verb|theories/Alpha.v| contains the material from the original paper. It is parameterized by the
+\verb|theories/AlphaPaper.v| contains the material from the original paper. It is parameterized by the
 infinite set $\mathcal{V}$ and its corresponding $\textrm{Fresh}$ function.
 
 \verb|theories/AlphaImpl.v| contains two concrete implementations of the formalization, one where
@@ -242,8 +242,6 @@ On page 5, we assume that ``Hence by ind.hyp.\ we know $\llparenthesis f[x,z] \r
 \section{Future Work}
 
 Some of our potential next steps:
-
-Proving equivalence to de Bruijn terms is still in progress.
 
 Currently, the definition of \verb|term| is not user-extensible (and is currently rather
 bare-bones). We hope to explore ways, if possible, to adapt this formalization to more featureful

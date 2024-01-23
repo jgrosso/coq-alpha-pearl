@@ -21,7 +21,7 @@ Set Implicit Arguments.
 Set Bullet Behavior "Strict Subproofs".
 Unset Printing Implicit Defensive.
 
-Obligation Tactic := program_simpl.
+#[local] Obligation Tactic := program_simpl.
 
 #[local] Open Scope fset_scope.
 
@@ -1279,7 +1279,7 @@ Module AlphaPaperFacts (Import M : Alpha).
 
   (** TODO Explicitly formalize the resulting Kliesli-category? *)
 
-  Implicit Types (c d i j n : nat) (ϕ ψ : {fmap 𝒱 → nat}).
+  Implicit Types (c d i j m n : nat) (ϕ ψ : {fmap 𝒱 → nat}).
 
   Definition nat_to_pred n i : bool := i < n.
 
@@ -1550,6 +1550,254 @@ Module AlphaPaperFacts (Import M : Alpha).
       apply H0 in H2. by_cases.
     - apply lemma9 with (R := 1__(domm ϕ)) in H2; by_cases. exists (domm ϕ). by_cases.
   Qed.
+
+  Module DeBruijn.
+    Definition Subst : Type := nat -> de_Bruijn_term.
+
+    Implicit Types (ts : Subst).
+
+    Fixpoint wk_var i (x : nat) : nat :=
+      match i, x with
+      | 0,   _   => S x
+      | S i, 0   => 0
+      | S i, S x => S (wk_var i x)
+      end.
+
+    Fixpoint wk i dBt : de_Bruijn_term :=
+      match dBt with
+      | de_Bruijn_variable x          => de_Bruijn_variable (wk_var i x)
+      | de_Bruijn_application dBt dBu => de_Bruijn_application (wk i dBt) (wk i dBu)
+      | de_Bruijn_abstraction dBt     => de_Bruijn_abstraction (wk (S i) dBt)
+      end.
+
+    Definition ext ts : Subst := fun i =>
+      match i with
+      | 0   => de_Bruijn_variable 0
+      | S i => wk 0 (ts i)
+      end.
+
+    Fixpoint subst ts dBt : de_Bruijn_term :=
+      match dBt with
+      | de_Bruijn_variable x          => ts x
+      | de_Bruijn_application dBt dBu => de_Bruijn_application (subst ts dBt) (subst ts dBu)
+      | de_Bruijn_abstraction dBt     => de_Bruijn_abstraction (subst (ext ts) dBt)
+      end.
+
+    Definition update_ϕ' ϕ z i : {fmap 𝒱 → nat} :=
+      setm (mapm (wk_var i) ϕ) z i.
+
+    #[local] Notation "ϕ '^+[' z ',' i ']'" := (update_ϕ' ϕ z i) (at level 0).
+
+    Lemma update_ϕ'E :
+      forall ϕ z i y,
+        getm (update_ϕ' ϕ z i) y =
+          if y == z
+          then Some i
+          else omap (wk_var i) (getm ϕ y).
+    Proof. unfold update_ϕ'. by_cases. Qed.
+
+    Ltac by_cases_hook9 :=
+      lazymatch goal with
+      | H : context [ getm (update_ϕ' ?m ?x ?i) ?y] |- _ => rewrite [getm (update_ϕ' m x i) y]update_ϕ'E in H
+      | |- context [ getm (update_ϕ' ?m ?x ?i) ?y] => rewrite [getm (update_ϕ' m x i) y]update_ϕ'E
+      end || by_cases_hook8.
+    Ltac by_cases_hook ::= by_cases_hook9.
+
+    Lemma update_ϕ_as_update_ϕ' :
+      forall ϕ x,
+        ϕ^+x = ϕ^+[x,0].
+    Proof. by_cases. Qed.
+
+    Lemma wk_var_noop :
+      forall i j,
+        j < i ->
+        wk_var i j = j.
+    Proof.
+      intros.
+      gen i. induction j; destruct i; by_cases.
+    Qed.
+
+    Lemma wk_var_inc :
+      forall i j,
+        i <= j ->
+        wk_var i j = S j.
+    Proof. induction i; destruct j; by_cases. Qed.
+
+    Lemma wk_swap :
+      forall dBt i j,
+        i <= j ->
+        wk i (wk j dBt) = wk (S j) (wk i dBt).
+    Proof.
+      induction dBt; intros; simpl; f_equal; by_cases.
+      gen n j. induction i; destruct n, j; by_cases.
+    Qed.
+
+    Definition Lift ϕ t := to_de_Bruijn t ϕ.
+
+    Lemma Lift_observably_equal :
+      forall t ϕ ψ,
+        FV t ⊆ (domm ϕ ∩ domm ψ) ->
+        (forall x, x ∈ FV t -> getm ϕ x = getm ψ x) ->
+        t^ϕ = t^ψ.
+    Proof.
+      induction t; intros; simpl; f_equal; by_cases.
+      - apply IHt; by_cases;
+        assert (x ∈ domm ϕ ∩ domm ψ) as Hx by (apply H; by_cases); by_cases.
+        f_equal.
+        cut (Some x1 = Some x0). { by_cases. }
+        rewrite -Heqo -Heqo0.
+        apply H0. by_cases.
+      - apply IHt1; by_cases.
+        assert (x ∈ domm ϕ ∩ domm ψ) as Hx by (apply H; by_cases); by_cases.
+        cut (Some x1 = Some x0). { by_cases. }
+        rewrite -H3 -H4.
+        apply H0. by_cases.
+      - apply IHt2; by_cases.
+        assert (x ∈ domm ϕ ∩ domm ψ) as Hx by (apply H1; by_cases); by_cases.
+        cut (Some x1 = Some x0). { by_cases. }
+        rewrite -H3 -H4.
+        apply H0. by_cases.
+      - cut (Some x0 = Some x). { by_cases. }
+        rewrite -H -H1.
+        apply H0. by_cases.
+    Qed.
+
+    Lemma wk_var_swap :
+      forall i j n,
+        i <= j ->
+        wk_var i (wk_var j n) = wk_var (S j) (wk_var i n).
+    Proof. induction i; destruct j, n; by_cases. Qed.
+
+    Lemma update_ϕ'_shadow :
+      forall ϕ x i,
+        ϕ^+[x,i]^+x = wk_var (S i) ∘ ϕ^+x.
+    Proof.
+      by_cases.
+      destruct (getm ϕ x0) eqn:H; by_cases.
+    Qed.
+
+    Lemma update_ϕ'_swap :
+      forall ϕ x y i j,
+        y ∉ domm ϕ ->
+        j < i ->
+        x <> y ->
+        ϕ^+[y,i]^+[x,j] = ϕ^+[x,j]^+[y,S i].
+    Proof.
+      intros.
+      apply eq_fmap. intros z.
+      rewrite !update_ϕ'E.
+      destruct (z =P x); subst.
+      - destruct (x =P y); subst; by_cases.
+        destruct j; by_cases.
+        rewrite wk_var_noop; by_cases.
+      - destruct (z =P y); subst; by_cases.
+        + apply wk_var_inc. auto.
+        + destruct (getm ϕ z); by_cases.
+          destruct j, n1; by_cases.
+          * rewrite wk_var_noop //. destruct i; by_cases.
+          * destruct i; by_cases.
+            rewrite wk_var_swap; auto.
+    Qed.
+
+    Lemma Lift_wk_var :
+      forall t ϕ x i j,
+        let Y := domm ϕ in
+        t ∈ Tm (Y ∪ {x}) ->
+        j < i ->
+        t^(wk_var i ∘ ϕ^+[x,j]) = wk i (t^(ϕ^+[x,j])).
+    Proof.
+      induction t; intros; simpl; f_equal; by_cases.
+      - rewrite -IHt; by_cases; cycle 1.
+        { assert (x0 ∈ x |: domm ϕ) as Hϕx by (apply H; by_cases). by_cases. }
+        apply Lift_observably_equal; by_cases;
+        assert (x0 ∈ x |: domm ϕ) as Hϕx by (apply H; by_cases); by_cases.
+      - rewrite IHt1; by_cases.
+      - rewrite IHt2; by_cases.
+    Qed.
+
+    Lemma Lift_wk :
+      forall t ψ z i,
+        let Y := domm ψ in
+        z ∉ Y ->
+        t ∈ Tm Y ->
+        t^(ψ^+[z,i]) = wk i (t^ψ).
+    Proof.
+      induction t; intros; simpl; cycle 1.
+      - f_equal;
+        apply IHt1 + apply IHt2;
+        apply negbTE in H; by_cases.
+      - by_cases.
+      - f_equal.
+        destruct (z =P s); subst; by_cases.
+        + rewrite update_ϕ'_shadow Lift_wk_var; by_cases.
+          assert (x ∈ domm ψ) by (apply H0; by_cases). by_cases.
+        + rewrite -(IHt (ψ^+s) z (S i)); by_cases; cycle 1.
+          { assert (x ∈ domm ψ) by (apply H0; by_cases). by_cases. }
+          apply Lift_observably_equal; by_cases;
+          assert (x ∈ domm ψ) by (apply H0; by_cases); by_cases.
+    Qed.
+
+    Lemma Lift_ext :
+      forall f ϕ ψ (g : Subst) x y,
+        let X := domm f in
+        let Y := domm ψ in
+        let m := codomm_𝐍 ϕ in
+        let n := codomm_𝐍 ψ in
+        domm ϕ = X ->
+        codomm_Tm_set f ⊆ Y ->
+        g ∘ ϕ = Lift ψ ∘ f ->
+        y ∉ Y ->
+        Lift (ψ^+y) ∘ (f[x,variable y]) = ext g ∘ (ϕ^+x).
+    Proof.
+      by_cases.
+      - assert (x0 ∈ domm ϕ) by (rewrite H; by_cases). by_cases.
+        rewrite /Lift Lift_wk; by_cases.
+        + cut (Some (t^ψ) = Some (g x1)). { by_cases. }
+          transitivity (mapm (Lift ψ) f x0). { by_cases. }
+          transitivity (mapm g ϕ x0); cycle 1. { by_cases. }
+          rewrite H1 //.
+        + cut (is_true (x2 ∈ domm ψ)). { by_cases. }
+          apply H0. by_cases.
+      - assert (x0 ∉ domm ϕ) by (rewrite H; by_cases). by_cases.
+    Qed.
+
+    Lemma Lift_preserves_subst :
+      forall t f ϕ ψ (g : Subst),
+        let X := domm f in
+        let Y := domm ψ in
+        let m := codomm_𝐍 ϕ in
+        let n := codomm_𝐍 ψ in
+        Fresh_correct Fresh ->
+        domm ϕ = X ->
+        codomm_Tm_set f ⊆ Y ->
+        g ∘ ϕ = Lift ψ ∘ f ->
+        t ∈ Tm X ->
+        subst g (t^ϕ) = (⦇f⦈ Fresh Y t)^ψ.
+    Proof.
+      induction t; intros; simpl; f_equal; try solve [by_cases]; cycle 1.
+      - apply IHt1; by_cases.
+      - apply IHt2; by_cases.
+      - by_cases.
+        assert (mapm g ϕ s = mapm (Lift ψ) f s). { rewrite H2 //. }
+        rewrite !mapmE in H4. by_cases.
+      - pose (z := Fresh Y). fold z.
+        rewrite (IHt (f[s,variable z]) (ϕ^+s) (ψ^+z) (ext g)) //; cycle -1.
+        { by_cases.
+          cut (is_true (x ∈ domm f)). { by_cases. }
+          apply H3. by_cases. }
+        { repeat f_equal. by_cases. }
+        { by_cases.
+          - cut (is_true (x ∈ domm f)). { by_cases. }
+            rewrite -H0. by_cases.
+          - cut (is_true (x ∈ domm ϕ)). { by_cases. }
+            rewrite H0. by_cases. }
+        { rewrite codomm_update_substitution. by_cases.
+          cut (is_true (x ∈ domm ψ)). { by_cases. }
+          apply H1. by_cases. }
+        symmetry.
+        apply Lift_ext; by_cases.
+    Qed.
+  End DeBruijn.
 
   Lemma α_equivalent'_respects_α_equivalence_l :
     forall R t t' u,
