@@ -1624,7 +1624,6 @@ Module AlphaPaperFacts (Import M : Alpha).
       | Some x => x
       end.
     Next Obligation.
-    Proof.
       apply Subst_domm_cond with (n := n) (s := ts) in Hi.
       symmetry in Heq_anonymous. apply (rwP dommPn) in Heq_anonymous.
       rewrite Hi // in Heq_anonymous.
@@ -1693,7 +1692,6 @@ Module AlphaPaperFacts (Import M : Alpha).
             (de_Bruijn_variable 0)
       |}.
     Next Obligation.
-    Proof.
       rewrite domm_set domm_mkfmapfp in_fsetU1.
       destruct i.
       - by_cases.
@@ -1707,7 +1705,6 @@ Module AlphaPaperFacts (Import M : Alpha).
           rewrite -nat_to_pred_S (Subst_domm_cond ts) //.
     Qed.
     Next Obligation.
-    Proof.
       apply (rwP codommP) in H as [i Hi].
       rewrite setmE in Hi.
       destruct i; by_cases.
@@ -1759,12 +1756,10 @@ Module AlphaPaperFacts (Import M : Alpha).
       | de_Bruijn_abstraction dBt     => de_Bruijn_abstraction (subst (ext ts) dBt _)
       end.
     Next Obligation.
-    Proof.
       by_cases. symmetry. change (dBt ∈ Tm^db n).
       rewrite /in_mem /= in HdBt. by_cases.
     Qed.
     Next Obligation.
-    Proof.
       by_cases. symmetry. change (dBu ∈ Tm^db n).
       rewrite /in_mem /= in HdBt. by_cases.
     Qed.
@@ -1994,7 +1989,7 @@ Module AlphaPaperFacts (Import M : Alpha).
         (forall x, x ∈ X -> obind (getm (Subst_map g)) (getm ϕ x) = omap (Lift ψ) (getm f x)) ->
         t ∈ Tm X ->
         forall (Ht : t^ϕ ∈ Tm^db n),
-          subst g (t^ϕ) Ht = (⦇f⦈ Fresh Y t)^ψ.
+        subst g (t^ϕ) Ht = (⦇f⦈ Fresh Y t)^ψ.
     Proof.
       induction t; intros; simpl; f_equal; try solve [by_cases]; cycle 1.
       - apply IHt1; by_cases.
@@ -2024,6 +2019,30 @@ Module AlphaPaperFacts (Import M : Alpha).
         { apply leq_trans with (S (codomm_𝐍 ψ)); auto. apply codomm_𝐍_update_ϕ. }
         symmetry.
         apply Lift_ext; by_cases.
+    Qed.
+
+    #[program] Definition LiftPreservesSubst : Type :=
+      forall t f ϕ ψ m n (g : Subst m n),
+        let X := domm f in
+        let Y := domm ψ in
+        Fresh_correct Fresh ->
+        forall (HϕX : domm ϕ = X),
+        codomm_Tm_set f ⊆ Y ->
+        forall (Hϕn : codomm_𝐍 ϕ <= n),
+        codomm_𝐍 ψ <= m ->
+        (forall x, x ∈ X -> obind (getm (Subst_map g)) (getm ϕ x) = omap (Lift ψ) (getm f x)) ->
+        forall (HtX : t ∈ Tm X),
+        subst g (t^ϕ) _ = (⦇f⦈ Fresh Y t)^ψ.
+    Next Obligation.
+      apply de_Bruijn_Tm_subset with (codomm_𝐍 ϕ); auto.
+      apply to_de_Bruijn_type.
+      rewrite HϕX //.
+    Qed.
+
+    Lemma Lift_preserves_subst : LiftPreservesSubst.
+    Proof.
+      unfold LiftPreservesSubst. intros.
+      apply Lift_preserves_subst'; auto.
     Qed.
   End DeBruijn.
 
