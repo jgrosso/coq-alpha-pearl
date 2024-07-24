@@ -1286,10 +1286,24 @@ Module AlphaPaperFacts (Import M : Alpha).
   (** Page 7: "Here we identify n ∈ Nat with the set {i ∈ Nat | i < n}." *)
   Canonical nat_predType := PredType nat_to_pred.
 
+  Lemma nat_to_pred_S :
+    forall i n,
+      i ∈ n <-> S i ∈ S n.
+  Proof. by_cases. Qed.
+
   Inductive de_Bruijn_term : Type :=
   | de_Bruijn_abstraction : de_Bruijn_term -> de_Bruijn_term
   | de_Bruijn_application : de_Bruijn_term -> de_Bruijn_term -> de_Bruijn_term
   | de_Bruijn_variable : nat -> de_Bruijn_term.
+
+  Definition de_Bruijn_term_indDef := [indDef for de_Bruijn_term_rect].
+  Canonical de_Bruijn_term_indType := IndType de_Bruijn_term de_Bruijn_term_indDef.
+  Definition de_Bruijn_term_hasDecEq := [derive hasDecEq for de_Bruijn_term].
+  HB.instance Definition _ := de_Bruijn_term_hasDecEq.
+  Definition de_Bruijn_term_hasChoice := [derive hasChoice for de_Bruijn_term].
+  HB.instance Definition _ := de_Bruijn_term_hasChoice.
+  Definition de_Bruijn_term_hasOrd := [derive hasOrd for de_Bruijn_term].
+  HB.instance Definition _ := de_Bruijn_term_hasOrd.
 
   #[local] Coercion de_Bruijn_variable : nat >-> de_Bruijn_term.
 
@@ -1326,7 +1340,7 @@ Module AlphaPaperFacts (Import M : Alpha).
     where "t '∈' 'Tm^db' n" := (in_de_Bruijn_Tm n t).
   End in_de_Bruijn_Tm.
 
-  Lemma de_Bruijn_TmP : forall n dBt, reflect (in_de_Bruijn_Tm n dBt) (dBt ∈ Tm^db n).
+  Lemma de_Bruijn_TmP : forall {n dBt}, reflect (in_de_Bruijn_Tm n dBt) (dBt ∈ Tm^db n).
   Proof.
     rewrite /in_mem /=.
     introv.
@@ -1386,8 +1400,47 @@ Module AlphaPaperFacts (Import M : Alpha).
     end || by_cases_hook7.
   Ltac by_cases_hook ::= by_cases_hook8.
 
-  Definition codomm_𝐍 ϕ : nat :=
+  Definition codomm_𝐍 {A : ordType} (ϕ : {fmap A → nat}) : nat :=
     S (\max_(i <- codomm ϕ) i).
+
+  (* TODO Better name than "index"? *)
+  Fixpoint de_Bruijn_index (dBt : de_Bruijn_term) : nat :=
+    match dBt with
+    | de_Bruijn_variable x          => S x
+    | de_Bruijn_application dBt dBu => max (de_Bruijn_index dBt) (de_Bruijn_index dBu)
+    | de_Bruijn_abstraction dBt     => (de_Bruijn_index dBt).-1
+    end.
+
+  Lemma de_Bruijn_index_sufficient :
+    forall dBt,
+      dBt ∈ Tm^db (de_Bruijn_index dBt).
+  Proof.
+    induction dBt; repeat rewrite /in_mem /=; by_cases.
+    - apply de_Bruijn_Tm_subset with (de_Bruijn_index dBt); by_cases.
+      apply leqSpred.
+    - apply de_Bruijn_Tm_subset with (de_Bruijn_index dBt1); by_cases.
+      rewrite maxn_max leq_maxl //.
+    - apply de_Bruijn_Tm_subset with (de_Bruijn_index dBt2); by_cases.
+      rewrite maxn_max leq_maxr //.
+    - rewrite /nat_to_pred //.
+  Qed.
+
+  Lemma de_Bruijn_index_minimal :
+    forall n dBt,
+      dBt ∈ Tm^db n ->
+      de_Bruijn_index dBt <= n.
+  Proof.
+    intros.
+    gen n. induction dBt; by_cases.
+    - apply IHdBt in H.
+      rewrite /leq -predn_sub -subnS //.
+    - rewrite /in_mem /= -(rwP andP) in H. destruct H as [H1 H2].
+      apply IHdBt1 in H1. apply IHdBt2 in H2.
+      rewrite maxn_max geq_max H1 H2 //.
+  Qed.
+
+  Definition codomm_de_Bruijn_index {A : ordType} (ϕ : {fmap A → de_Bruijn_term}) : nat :=
+    \max_(dBt <- codomm ϕ) de_Bruijn_index dBt.
 
   Lemma ϕ_type :
     forall ϕ n,
@@ -1552,9 +1605,51 @@ Module AlphaPaperFacts (Import M : Alpha).
   Qed.
 
   Module DeBruijn.
-    Definition Subst : Type := nat -> de_Bruijn_term.
+    Record Subst (m n : nat) : Type :=
+      mkSubst
+        { Subst_map : {fmap nat → de_Bruijn_term}
+        ; Subst_domm := domm Subst_map
+        ; Subst_domm_cond :
+          forall i, i ∈ n <-> i ∈ Subst_domm
+        ; Subst_codomm := codomm Subst_map
+        ; Subst_codomm_cond :
+          forall dBt,
+            dBt ∈ Subst_codomm ->
+            dBt ∈ Tm^db m
+        }.
 
-    Implicit Types (ts : Subst).
+    #[program] Definition Subst_getm {m n} (ts : Subst m n) i (Hi : i ∈ n) : de_Bruijn_term :=
+      match getm (Subst_map ts) i with
+      | None   => _
+      | Some x => x
+      end.
+    Next Obligation.
+    Proof.
+      apply Subst_domm_cond with (n := n) (s := ts) in Hi.
+      symmetry in Heq_anonymous. apply (rwP dommPn) in Heq_anonymous.
+      rewrite Hi // in Heq_anonymous.
+    Qed.
+
+    Lemma getm_to_Subst_getm :
+      forall m n (ts : Subst m n) i (Hi : i ∈ n) dBt,
+        getm (Subst_map ts) i = Some dBt ->
+        Subst_getm ts i Hi = dBt.
+    Proof.
+      intros.
+      rewrite /Subst_getm.
+      remember (Subst_getm_obligation_1 _ _ _) as Htemp. clear HeqHtemp. gen Htemp.
+      rewrite /= H //.
+    Qed.
+
+    Lemma Z_in_nonempty_Subst_domm :
+      forall m n (ts : Subst m n) i,
+        i ∈ Subst_domm ts ->
+        0 ∈ Subst_domm ts.
+    Proof.
+      intros.
+      rewrite -Subst_domm_cond. rewrite -Subst_domm_cond in H.
+      destruct n; auto.
+    Qed.
 
     Fixpoint wk_var i (x : nat) : nat :=
       match i, x with
@@ -1563,6 +1658,11 @@ Module AlphaPaperFacts (Import M : Alpha).
       | S i, S x => S (wk_var i x)
       end.
 
+    Lemma wk_var_lt :
+      forall i (x : nat),
+        wk_var i x <= S x.
+    Proof. intros. gen i. induction x; destruct i; by_cases. Qed.
+
     Fixpoint wk i dBt : de_Bruijn_term :=
       match dBt with
       | de_Bruijn_variable x          => de_Bruijn_variable (wk_var i x)
@@ -1570,18 +1670,120 @@ Module AlphaPaperFacts (Import M : Alpha).
       | de_Bruijn_abstraction dBt     => de_Bruijn_abstraction (wk (S i) dBt)
       end.
 
-    Definition ext ts : Subst := fun i =>
-      match i with
-      | 0   => de_Bruijn_variable 0
-      | S i => wk 0 (ts i)
-      end.
+    Lemma wk_range :
+      forall i n dBt,
+        dBt ∈ Tm^db n ->
+        wk i dBt ∈ Tm^db (S n).
+    Proof.
+      intros.
+      gen i n. induction dBt; by_cases;
+      rewrite /in_mem /=; rewrite /in_mem /= in H; by_cases.
+      rewrite /in_mem /= /nat_to_pred.
+      apply leq_trans with (S (S n)); auto.
+      apply wk_var_lt.
+    Qed.
 
-    Fixpoint subst ts dBt : de_Bruijn_term :=
+    #[program] Definition ext {m n} (ts : Subst m n) : Subst (S m) (S n) :=
+      {| Subst_map :=
+          setm
+            (mkfmapfp
+               (fun i => omap (wk 0) (getm (Subst_map ts) (i.-1)))
+               (map S (Subst_domm ts)))
+            0
+            (de_Bruijn_variable 0)
+      |}.
+    Next Obligation.
+    Proof.
+      rewrite domm_set domm_mkfmapfp in_fsetU1.
+      destruct i.
+      - by_cases.
+      - split; by_cases.
+        + rewrite (Subst_domm_cond ts) /Subst_domm in H.
+          rewrite in_fset mem_filter /= map_f; by_cases.
+        + rewrite in_fset mem_filter /= in H; by_cases.
+          assert (i ∈ Subst_domm ts).
+          { unfold Subst_domm. by_cases.
+            destruct (getm (Subst_map ts) i) eqn:Hi; by_cases. }
+          rewrite -nat_to_pred_S (Subst_domm_cond ts) //.
+    Qed.
+    Next Obligation.
+    Proof.
+      apply (rwP codommP) in H as [i Hi].
+      rewrite setmE in Hi.
+      destruct i; by_cases.
+      rewrite map_f in H.
+      - assert (d ∈ Subst_codomm ts) as Hd by (unfold Subst_codomm; by_cases).
+        apply Subst_codomm_cond in Hd.
+        apply wk_range. auto.
+      - rewrite -(rwP dommP). by_cases.
+    Qed.
+
+    Lemma extZE' :
+      forall m n (ts : Subst (S m) n),
+        getm (Subst_map (ext ts)) 0 = Some (de_Bruijn_variable 0).
+    Proof. by_cases. Qed.
+
+    Lemma extZE :
+      forall m n (ts : Subst (S m) n),
+        Subst_getm (ext ts) 0 (ltn0Sn _) = 0.
+    Proof.
+      intros.
+      apply getm_to_Subst_getm. rewrite extZE' //.
+    Qed.
+
+    Lemma extSE' :
+      forall m n (ts : Subst m n) i,
+        getm (Subst_map (ext ts)) (S i) = omap (wk 0) (getm (Subst_map ts) i).
+    Proof.
+      by_cases.
+      rewrite map_f // /Subst_domm -(rwP dommP) in Heqb. by_cases.
+    Qed.
+
+    Lemma extSE :
+      forall m n (ts : Subst m n) i (Hi1 Hi2 : i ∈ n),
+        Subst_getm (ext ts) (S i) Hi1 = wk 0 (Subst_getm ts i Hi2).
+    Proof.
+      intros.
+      apply getm_to_Subst_getm. rewrite extSE'.
+      rewrite (Subst_domm_cond ts) /= in Hi1.
+      apply (rwP dommP) in Hi1 as [dBt HdBt].
+      rewrite HdBt.
+      apply getm_to_Subst_getm with (Hi := Hi2) in HdBt.
+      rewrite HdBt //.
+    Qed.
+
+    #[program] Fixpoint subst {m n} (ts : Subst m n) dBt (HdBt : dBt ∈ Tm^db n) : de_Bruijn_term :=
       match dBt with
-      | de_Bruijn_variable x          => ts x
-      | de_Bruijn_application dBt dBu => de_Bruijn_application (subst ts dBt) (subst ts dBu)
-      | de_Bruijn_abstraction dBt     => de_Bruijn_abstraction (subst (ext ts) dBt)
+      | de_Bruijn_variable x          => Subst_getm ts x _
+      | de_Bruijn_application dBt dBu => de_Bruijn_application (subst ts dBt HdBt) (subst ts dBu HdBt)
+      | de_Bruijn_abstraction dBt     => de_Bruijn_abstraction (subst (ext ts) dBt _)
       end.
+    Next Obligation.
+    Proof.
+      by_cases. symmetry. change (dBt ∈ Tm^db n).
+      rewrite /in_mem /= in HdBt. by_cases.
+    Qed.
+    Next Obligation.
+    Proof.
+      by_cases. symmetry. change (dBu ∈ Tm^db n).
+      rewrite /in_mem /= in HdBt. by_cases.
+    Qed.
+
+    Lemma subst_range :
+      forall m n (ts : Subst m n) dBt (HdBt : dBt ∈ Tm^db n),
+        subst ts dBt HdBt ∈ Tm^db m.
+    Proof.
+      intros.
+      gen m n. induction dBt; by_cases;
+      rewrite /in_mem /=; by_cases.
+      pose proof HdBt as HdBt'.
+      rewrite /in_mem /= in HdBt'.
+      apply Subst_domm_cond with (s := ts) in HdBt'.
+      unfold Subst_domm in HdBt'. by_cases.
+      rewrite (getm_to_Subst_getm ts n HdBt H).
+      apply Subst_codomm_cond with (s := ts).
+      unfold Subst_codomm. by_cases.
+    Qed.
 
     Definition update_ϕ' ϕ z i : {fmap 𝒱 → nat} :=
       setm (mapm (wk_var i) ϕ) z i.
@@ -1602,6 +1804,11 @@ Module AlphaPaperFacts (Import M : Alpha).
       | |- context [ getm (update_ϕ' ?m ?x ?i) ?y] => rewrite [getm (update_ϕ' m x i) y]update_ϕ'E
       end || by_cases_hook8.
     Ltac by_cases_hook ::= by_cases_hook9.
+
+    Lemma update_ϕ_shadow :
+      forall ϕ x,
+        getm (ϕ^+x) x = Some 0.
+    Proof. intros. rewrite update_ϕE eq_refl //. Qed.
 
     Lemma update_ϕ_as_update_ϕ' :
       forall ϕ x,
@@ -1715,7 +1922,7 @@ Module AlphaPaperFacts (Import M : Alpha).
       - rewrite IHt2; by_cases.
     Qed.
 
-    Lemma Lift_wk :
+    Lemma Lift_wk' :
       forall t ψ z i,
         let Y := domm ψ in
         z ∉ Y ->
@@ -1737,55 +1944,73 @@ Module AlphaPaperFacts (Import M : Alpha).
           assert (x ∈ domm ψ) by (apply H0; by_cases); by_cases.
     Qed.
 
+    Lemma Lift_wk :
+      forall t ψ z,
+        let Y := domm ψ in
+        z ∉ Y ->
+        t ∈ Tm Y ->
+        Lift (ψ^+z) t = wk 0 (Lift ψ t).
+    Proof. intros. rewrite /Lift update_ϕ_as_update_ϕ' Lift_wk' //. Qed.
+
     Lemma Lift_ext :
-      forall f ϕ ψ (g : Subst) x y,
+      forall m n f ϕ ψ (g : Subst m n) x y,
         let X := domm f in
         let Y := domm ψ in
-        let m := codomm_𝐍 ϕ in
-        let n := codomm_𝐍 ψ in
         domm ϕ = X ->
         codomm_Tm_set f ⊆ Y ->
-        g ∘ ϕ = Lift ψ ∘ f ->
+        codomm_𝐍 ϕ <= n ->
+        codomm_𝐍 ψ <= m ->
+        (forall x, x ∈ X -> obind (getm (Subst_map g)) (getm ϕ x) = omap (Lift ψ) (getm f x)) ->
         y ∉ Y ->
-        Lift (ψ^+y) ∘ (f[x,variable y]) = ext g ∘ (ϕ^+x).
+        forall z, z ∈ X ∪ {x} -> omap (Lift (ψ^+y)) (getm (f[x,variable y]) z) = obind (getm (Subst_map (ext g))) (getm (ϕ^+x) z).
     Proof.
-      by_cases.
-      - assert (x0 ∈ domm ϕ) by (rewrite H; by_cases). by_cases.
-        rewrite /Lift Lift_wk; by_cases.
-        + cut (Some (t^ψ) = Some (g x1)). { by_cases. }
-          transitivity (mapm (Lift ψ) f x0). { by_cases. }
-          transitivity (mapm g ϕ x0); cycle 1. { by_cases. }
-          rewrite H1 //.
-        + cut (is_true (x2 ∈ domm ψ)). { by_cases. }
-          apply H0. by_cases.
-      - assert (x0 ∉ domm ϕ) by (rewrite H; by_cases). by_cases.
+      intros m n f ϕ ψ g x y X Y HX HY Hm Hn H Hy z Hz.
+      destruct (z =P x); subst.
+      { by_cases. }
+      replace (omap (Lift (ψ^+y)) ((f[x,variable y]) z)) with (omap (Lift (ψ^+y)) (getm f z)) by by_cases.
+      replace (obind (getm (Subst_map (ext g))) (getm (ϕ^+x) z)) with (obind (getm (Subst_map (ext g))) (omap S (getm ϕ z))) by by_cases.
+      replace (obind (getm (Subst_map (ext g))) (omap S (getm ϕ z))) with (omap (wk 0) (obind (getm (Subst_map g)) (getm ϕ z))); cycle 1.
+      { assert (z ∈ domm ϕ) as Hzϕ. { rewrite HX. by_cases. }
+        by_cases.
+        rewrite map_f // in Heqb.
+        rewrite /Subst_domm -(rwP dommP). by_cases. }
+      replace (omap (wk 0) (obind (getm (Subst_map g)) (getm ϕ z))) with (omap (wk 0 ∘ Lift ψ) (getm f z)); cycle 1.
+      { rewrite H; by_cases. }
+      cut (is_true (z ∈ domm f)); by_cases.
+      apply Lift_wk. { by_cases. }
+      cut (is_true (x1 ∈ Tm (codomm_Tm_set f))); by_cases.
     Qed.
 
     (** Page 8: "I leave it to the reader to show that -^ϕ preserves substitution...." *)
-    Lemma Lift_preserves_subst :
-      forall t f ϕ ψ (g : Subst),
+    Lemma Lift_preserves_subst' :
+      forall t f ϕ ψ m n (g : Subst m n),
         let X := domm f in
         let Y := domm ψ in
-        let m := codomm_𝐍 ϕ in
-        let n := codomm_𝐍 ψ in
         Fresh_correct Fresh ->
         domm ϕ = X ->
         codomm_Tm_set f ⊆ Y ->
-        g ∘ ϕ = Lift ψ ∘ f ->
+        codomm_𝐍 ϕ <= n ->
+        codomm_𝐍 ψ <= m ->
+        (forall x, x ∈ X -> obind (getm (Subst_map g)) (getm ϕ x) = omap (Lift ψ) (getm f x)) ->
         t ∈ Tm X ->
-        subst g (t^ϕ) = (⦇f⦈ Fresh Y t)^ψ.
+        forall (Ht : t^ϕ ∈ Tm^db n),
+          subst g (t^ϕ) Ht = (⦇f⦈ Fresh Y t)^ψ.
     Proof.
       induction t; intros; simpl; f_equal; try solve [by_cases]; cycle 1.
       - apply IHt1; by_cases.
       - apply IHt2; by_cases.
       - by_cases.
-        assert (mapm g ϕ s = mapm (Lift ψ) f s). { rewrite H2 //. }
-        rewrite !mapmE in H4. by_cases.
+        assert (mapm (getm (Subst_map g)) ϕ s = mapm (Some ∘ Lift ψ) f s).
+        { rewrite !mapmE [omap (Some ∘ Lift ψ) (getm f s)]omap_comp /= -H4; by_cases.
+          rewrite /in_mem /= (Subst_domm_cond g) in Ht.
+          apply (rwP dommPn) in Heqo0. rewrite Ht // in Heqo0. }
+        rewrite !mapmE in H6. by_cases.
+        apply getm_to_Subst_getm. by_cases.
       - pose (z := Fresh Y). fold z.
-        rewrite (IHt (f[s,variable z]) (ϕ^+s) (ψ^+z) (ext g)) //; cycle -1.
+        rewrite (IHt (f[s,variable z]) (ϕ^+s) (ψ^+z) _ _ (ext g)) //; cycle -1.
         { by_cases.
           cut (is_true (x ∈ domm f)). { by_cases. }
-          apply H3. by_cases. }
+          apply H5. by_cases. }
         { repeat f_equal. by_cases. }
         { by_cases.
           - cut (is_true (x ∈ domm f)). { by_cases. }
@@ -1795,6 +2020,8 @@ Module AlphaPaperFacts (Import M : Alpha).
         { rewrite codomm_update_substitution. by_cases.
           cut (is_true (x ∈ domm ψ)). { by_cases. }
           apply H1. by_cases. }
+        { apply leq_trans with (S (codomm_𝐍 ϕ)); auto. apply codomm_𝐍_update_ϕ. }
+        { apply leq_trans with (S (codomm_𝐍 ψ)); auto. apply codomm_𝐍_update_ϕ. }
         symmetry.
         apply Lift_ext; by_cases.
     Qed.
